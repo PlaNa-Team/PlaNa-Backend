@@ -1,0 +1,41 @@
+# 테스트 환경 설정 - 메인 설정 완전 오버라이드
+spring:
+  # H2 메모리 데이터베이스 설정 (테스트용)
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: testDB
+    password:
+
+  # JPA 설정 - H2 전용 (메인 설정 오버라이드)
+  jpa:
+    database: h2  # H2 데이터베이스 지정
+    database-platform: org.hibernate.dialect.H2Dialect  # H2 방언 강제 사용
+    generate-ddl: true  # DDL 생성 허용 (메인 설정 오버라이드)
+    hibernate:
+      ddl-auto: create-drop  # 테스트 시작시 생성, 종료시 삭제
+    show-sql: true  # SQL 쿼리 로그 출력
+    properties:
+      hibernate:
+        format_sql: true  # SQL 포맷팅
+        dialect: org.hibernate.dialect.H2Dialect  # 명시적 방언 설정 (강제)
+
+  # H2 콘솔 활성화 (테스트 디버깅용)
+  h2:
+    console:
+      enabled: true
+
+# JWT 테스트용 설정
+jwt:
+  secret: testSecretKeyForTestingPurposesOnly  # 64자 이상 직접 설정하기
+  access-token-validity: 3600000   # 1시간 (밀리초)
+  refresh-token-validity: 604800000 # 7일 (밀리초)
+
+# 로깅 설정 (테스트시 더 자세한 로그)
+logging:
+  level:
+    com.hoonee.portfolio: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.hibernate.dialect: DEBUG  # Dialect 설정 로그 추가
