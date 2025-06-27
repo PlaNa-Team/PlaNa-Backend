@@ -44,7 +44,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         // OAuth2UserService에서 생성한 CustomOAuth2User에서 User 정보 추출
         OAuth2UserService.CustomOAuth2User oAuth2User = 
             (OAuth2UserService.CustomOAuth2User) authentication.getPrincipal();
-        Member member = oAuth2User.getUser();
+        Member member = oAuth2User.getMember();
         
         log.info("OAuth2 login success for member: {}", member.getEmail());
 

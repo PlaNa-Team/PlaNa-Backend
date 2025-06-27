@@ -252,7 +252,7 @@ public class OAuth2UserService extends DefaultOAuth2UserService {
         }
 
         // 추가: Member 엔티티 정보에 쉽게 접근할 수 있도록
-        public Member getUser() {
+        public Member getMember() {
             return member;
         }
     }

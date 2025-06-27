@@ -93,9 +93,9 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.name").value("테스터")); // 이름 확인
         
         // 데이터베이스에 실제로 저장되었는지 검증
-        var savedUser = memberRepository.findByEmail("test@example.com");
-        assert savedUser.isPresent() : "사용자가 데이터베이스에 저장되지 않았습니다";
-        assert savedUser.get().getName().equals("테스터") : "저장된 사용자 이름이 일치하지 않습니다";
+        var savedMember = memberRepository.findByEmail("test@example.com");
+        assert savedMember.isPresent() : "사용자가 데이터베이스에 저장되지 않았습니다";
+        assert savedMember.get().getName().equals("테스터") : "저장된 사용자 이름이 일치하지 않습니다";
     }
     
     @Test
@@ -144,11 +144,11 @@ class AuthControllerIntegrationTest {
         
         // 데이터베이스에는 첫 번째 사용자만 존재하는지 검증
         var members = memberRepository.findAll();
-        var duplicateEmailUsers = members.stream()
+        var duplicateEmailMembers = members.stream()
                 .filter(member -> "duplicate@example.com".equals(member.getEmail()))
                 .toList();
-        assert duplicateEmailUsers.size() == 1 : "중복 이메일로 여러 사용자가 생성되었습니다";
-        assert duplicateEmailUsers.get(0).getName().equals("첫번째사용자") : "잘못된 사용자가 저장되었습니다";
+        assert duplicateEmailMembers.size() == 1 : "중복 이메일로 여러 사용자가 생성되었습니다";
+        assert duplicateEmailMembers.get(0).getName().equals("첫번째사용자") : "잘못된 사용자가 저장되었습니다";
         
         System.out.println("=== 중복 테스트 완료 ===");
     }
@@ -176,8 +176,8 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.message").value("비밀번호가 일치하지 않습니다")); // 오류 메시지 확인
         
         // 데이터베이스에 사용자가 저장되지 않았는지 검증
-        var savedUser = memberRepository.findByEmail("mismatch@example.com");
-        assert savedUser.isEmpty() : "비밀번호 불일치 오류 시 사용자가 저장되었습니다";
+        var savedMember = memberRepository.findByEmail("mismatch@example.com");
+        assert savedMember.isEmpty() : "비밀번호 불일치 오류 시 사용자가 저장되었습니다";
     }
     
     @Test
@@ -203,8 +203,8 @@ class AuthControllerIntegrationTest {
                 // Bean Validation 오류 메시지는 세부적이라 일단 생략
         
         // 데이터베이스에 사용자가 저장되지 않았는지 검증
-        var savedUser = memberRepository.findByEmail("invalid-email-format");
-        assert savedUser.isEmpty() : "잘못된 이메일 형식 오류 시 사용자가 저장되었습니다";
+        var savedMember = memberRepository.findByEmail("invalid-email-format");
+        assert savedMember.isEmpty() : "잘못된 이메일 형식 오류 시 사용자가 저장되었습니다";
     }
     
     // ================================
