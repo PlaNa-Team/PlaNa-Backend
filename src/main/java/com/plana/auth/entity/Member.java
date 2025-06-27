@@ -11,12 +11,12 @@ import java.time.LocalDateTime;
 
 /* 사용자 정보를 저장하는 엔티티, 소셜 로그인과 일반 로그인을 모두 지원 */
 @Entity
-@Table(name = "users")
+@Table(name = "member")
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class User {
+public class Member {
     
     // 사용자 고유 식별자 (자동 증가)
     @Id

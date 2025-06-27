@@ -1,6 +1,6 @@
 package com.plana.auth.repository;
 
-import com.plana.auth.entity.User;
+import com.plana.auth.entity.Member;
 import com.plana.auth.enums.SocialProvider;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -12,16 +12,16 @@ import java.util.Optional;
  * 소셜 로그인 관련 사용자 조회 메서드 제공
  */
 @Repository
-public interface UserRepository extends JpaRepository<User, Long> {
+public interface MemberRepository extends JpaRepository<Member, Long> {
     
     // 이메일로 사용자 조회 (로그인 시 사용)
-    Optional<User> findByEmail(String email);
+    Optional<Member> findByEmail(String email);
     
     // 소셜 제공업체와 제공업체 ID로 사용자 조회 (소셜 로그인 시 사용)
-    Optional<User> findByProviderAndProviderId(SocialProvider provider, String providerId);
+    Optional<Member> findByProviderAndProviderId(SocialProvider provider, String providerId);
     
     // 이메일과 소셜 제공업체로 사용자 조회 (같은 이메일의 다른 소셜 계정 확인)
-    Optional<User> findByEmailAndProvider(String email, SocialProvider provider);
+    Optional<Member> findByEmailAndProvider(String email, SocialProvider provider);
     
     // 이메일 중복 확인 (회원가입 시 사용)
     boolean existsByEmail(String email);

@@ -4,9 +4,9 @@ import com.plana.auth.dto.LoginRequestDto;
 import com.plana.auth.dto.LoginResponseDto;
 import com.plana.auth.dto.SignupRequestDto;
 import com.plana.auth.dto.SignupResponseDto;
-import com.plana.auth.entity.User;
+import com.plana.auth.entity.Member;
 import com.plana.auth.enums.SocialProvider;
-import com.plana.auth.repository.UserRepository;
+import com.plana.auth.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -20,9 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class UserService {
+public class MemberService {
 
-    private final UserRepository userRepository;
+    private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
 
@@ -42,15 +42,15 @@ public class UserService {
         }
         
         // 2. 이메일 중복 검증 (소셜 로그인 포함)
-        if (userRepository.existsByEmail(signupRequest.getEmail())) {
+        if (memberRepository.existsByEmail(signupRequest.getEmail())) {
             throw new IllegalArgumentException("이미 사용중인 이메일입니다");
         }
         
         // 3. 비밀번호 암호화
         String encryptedPassword = passwordEncoder.encode(signupRequest.getPassword());
         
-        // 4. User 엔티티 생성
-        User newUser = User.builder()
+        // 4. Member 엔티티 생성
+        Member newMember = Member.builder()
                 .email(signupRequest.getEmail())
                 .name(signupRequest.getName())
                 .password(encryptedPassword) // 암호화된 비밀번호
@@ -61,16 +61,16 @@ public class UserService {
                 .build();
         
         // 5. 데이터베이스 저장
-        User savedUser = userRepository.save(newUser);
+        Member savedMember = memberRepository.save(newMember);
         
-        log.info("일반 회원가입 완료: userId={}, email={}", savedUser.getId(), savedUser.getEmail());
+        log.info("일반 회원가입 완료: memberId={}, email={}", savedMember.getId(), savedMember.getEmail());
         
         // 6. 응답 DTO 생성
         return SignupResponseDto.builder()
                 .message("회원가입이 완료되었습니다")
-                .userId(savedUser.getId())
-                .email(savedUser.getEmail())
-                .name(savedUser.getName())
+                .memberId(savedMember.getId())
+                .email(savedMember.getEmail())
+                .name(savedMember.getName())
                 .build();
     }
 
@@ -85,45 +85,45 @@ public class UserService {
         log.info("일반 로그인 시도: {}", loginRequest.getEmail());
         
         // 1. 이메일로 사용자 조회
-        User user = userRepository.findByEmail(loginRequest.getEmail())
+        Member member = memberRepository.findByEmail(loginRequest.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다"));
         
         // 2. 일반 로그인 사용자인지 확인 (소셜 로그인 사용자는 password가 null)
-        if (user.getProvider() != SocialProvider.LOCAL || user.getPassword() == null) {
+        if (member.getProvider() != SocialProvider.LOCAL || member.getPassword() == null) {
             throw new IllegalArgumentException("소셜 로그인으로 가입된 계정입니다. 소셜 로그인을 사용해주세요");
         }
         
         // 3. 계정 활성화 상태 확인
-        if (!user.getEnabled()) {
+        if (!member.getEnabled()) {
             throw new IllegalArgumentException("비활성화된 계정입니다. 관리자에게 문의하세요");
         }
         
         // 4. 비밀번호 검증
-        if (!passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
+        if (!passwordEncoder.matches(loginRequest.getPassword(), member.getPassword())) {
             throw new IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다");
         }
         
         // 5. JWT 토큰 생성 (기존 소셜 로그인과 동일한 방식)
         String accessToken = jwtTokenProvider.createAccessToken(
-                user.getId(),
-                user.getEmail(),
-                user.getRole()
+                member.getId(),
+                member.getEmail(),
+                member.getRole()
         );
         
-        log.info("일반 로그인 성공: userId={}, email={}", user.getId(), user.getEmail());
+        log.info("일반 로그인 성공: memberId={}, email={}", member.getId(), member.getEmail());
         
         // 6. 응답 DTO 생성 (소셜 로그인과 동일한 구조)
-        LoginResponseDto.UserInfoDto userInfo = LoginResponseDto.UserInfoDto.builder()
-                .id(user.getId())
-                .email(user.getEmail())
-                .name(user.getName())
-                .provider(user.getProvider().getValue())
+        LoginResponseDto.MemberInfoDto memberInfo = LoginResponseDto.MemberInfoDto.builder()
+                .id(member.getId())
+                .email(member.getEmail())
+                .name(member.getName())
+                .provider(member.getProvider().getValue())
                 .build();
         
         return LoginResponseDto.builder()
                 .accessToken(accessToken)
                 .expiresIn(3600L) // 1시간
-                .user(userInfo)
+                .member(memberInfo)
                 .build();
     }
 
@@ -134,18 +134,18 @@ public class UserService {
      */
     @Transactional(readOnly = true)
     public boolean isEmailExists(String email) {
-        return userRepository.existsByEmail(email);
+        return memberRepository.existsByEmail(email);
     }
 
     /**
      * 사용자 ID로 사용자 정보 조회
-     * @param userId 사용자 ID
+     * @param memberId 사용자 ID
      * @return 사용자 정보
      * @throws IllegalArgumentException 사용자 없음
      */
     @Transactional(readOnly = true)
-    public User getUserById(Long userId) {
-        return userRepository.findById(userId)
+    public Member getUserById(Long memberId) {
+        return memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다"));
     }
 
@@ -156,8 +156,8 @@ public class UserService {
      * @throws IllegalArgumentException 사용자 없음
      */
     @Transactional(readOnly = true)
-    public User getUserByEmail(String email) {
-        return userRepository.findByEmail(email)
+    public Member getUserByEmail(String email) {
+        return memberRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다"));
     }
 }

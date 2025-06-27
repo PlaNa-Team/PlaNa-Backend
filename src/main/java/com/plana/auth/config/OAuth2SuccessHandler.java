@@ -1,6 +1,6 @@
 package com.plana.auth.config;
 
-import com.plana.auth.entity.User;
+import com.plana.auth.entity.Member;
 import com.plana.auth.service.JwtTokenProvider;
 import com.plana.auth.service.OAuth2UserService;
 import jakarta.servlet.http.Cookie;
@@ -44,24 +44,24 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         // OAuth2UserService에서 생성한 CustomOAuth2User에서 User 정보 추출
         OAuth2UserService.CustomOAuth2User oAuth2User = 
             (OAuth2UserService.CustomOAuth2User) authentication.getPrincipal();
-        User user = oAuth2User.getUser();
+        Member member = oAuth2User.getUser();
         
-        log.info("OAuth2 login success for user: {}", user.getEmail());
+        log.info("OAuth2 login success for member: {}", member.getEmail());
 
         try {
             // JWT 토큰 생성
             String accessToken = jwtTokenProvider.createAccessToken(
-                user.getId(), 
-                user.getEmail(), 
-                user.getRole()
+                    member.getId(),
+                    member.getEmail(),
+                    member.getRole()
             );
-            String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
+            String refreshToken = jwtTokenProvider.createRefreshToken(member.getId());
             
             // 리프레시 토큰을 HttpOnly 쿠키로 설정 (보안상 안전)
             addRefreshTokenCookie(response, refreshToken);
             
             // 프론트엔드로 리다이렉트 URL 생성 (액세스 토큰 포함)
-            String targetUrl = createTargetUrl(accessToken, user);
+            String targetUrl = createTargetUrl(accessToken, member);
             
             log.info("Redirecting to: {}", targetUrl);
             getRedirectStrategy().sendRedirect(request, response, targetUrl);
@@ -81,16 +81,16 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     /**
      * 프론트엔드 리다이렉트 URL 생성
      * @param accessToken JWT 액세스 토큰
-     * @param user 사용자 정보
+     * @param member 사용자 정보
      * @return 리다이렉트 URL
      */
-    private String createTargetUrl(String accessToken, User user) {
+    private String createTargetUrl(String accessToken, Member member) {
         return UriComponentsBuilder.fromUriString(authorizedRedirectUri)
                 .queryParam("token", accessToken) // 액세스 토큰
-                .queryParam("userId", user.getId()) // 사용자 ID
-                .queryParam("email", URLEncoder.encode(user.getEmail(), StandardCharsets.UTF_8)) // 이메일 (URL 인코딩)
-                .queryParam("name", URLEncoder.encode(user.getName(), StandardCharsets.UTF_8)) // 이름 (URL 인코딩)
-                .queryParam("provider", user.getProvider().getValue()) // 소셜 제공업체
+                .queryParam("memberId", member.getId()) // 사용자 ID
+                .queryParam("email", URLEncoder.encode(member.getEmail(), StandardCharsets.UTF_8)) // 이메일 (URL 인코딩)
+                .queryParam("name", URLEncoder.encode(member.getName(), StandardCharsets.UTF_8)) // 이름 (URL 인코딩)
+                .queryParam("provider", member.getProvider().getValue()) // 소셜 제공업체
                 .build().toUriString();
     }
 

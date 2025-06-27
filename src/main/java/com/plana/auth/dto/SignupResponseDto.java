@@ -18,7 +18,7 @@ public class SignupResponseDto {
     private String message;
     
     // 생성된 사용자 ID
-    private Long userId;
+    private Long memberId;
     
     // 생성된 사용자 이메일
     private String email;

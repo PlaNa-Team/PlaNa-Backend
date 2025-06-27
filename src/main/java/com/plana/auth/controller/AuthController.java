@@ -4,10 +4,10 @@ import com.plana.auth.dto.LoginRequestDto;
 import com.plana.auth.dto.LoginResponseDto;
 import com.plana.auth.dto.SignupRequestDto;
 import com.plana.auth.dto.SignupResponseDto;
-import com.plana.auth.entity.User;
-import com.plana.auth.repository.UserRepository;
+import com.plana.auth.entity.Member;
+import com.plana.auth.repository.MemberRepository;
 import com.plana.auth.service.JwtTokenProvider;
-import com.plana.auth.service.UserService;
+import com.plana.auth.service.MemberService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -40,8 +40,8 @@ import java.util.Optional;
 public class AuthController {
 
     private final JwtTokenProvider jwtTokenProvider;
-    private final UserRepository userRepository;
-    private final UserService userService;
+    private final MemberRepository memberRepository;
+    private final MemberService memberService;
     
 
     /**
@@ -52,39 +52,39 @@ public class AuthController {
      */
     @GetMapping("/me")
     public ResponseEntity<Map<String, Object>> getCurrentUser(
-            @AuthenticationPrincipal User principal) {
+            @AuthenticationPrincipal Member principal) {
         
         if (principal == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Not authenticated"));
         }
         
         // DB에서 최신 사용자 정보 조회 (토큰의 정보가 오래될 수 있음)
-        Optional<User> userOptional = userRepository.findById(principal.getId());
+        Optional<Member> memberOptional = memberRepository.findById(principal.getId());
         
-        if (userOptional.isEmpty()) {
+        if (memberOptional.isEmpty()) {
             return ResponseEntity.status(404).body(Map.of("error", "User not found"));
         }
         
-        User user = userOptional.get();
+        Member member = memberOptional.get();
         
         // 계정 비활성화 상태 확인
-        if (!user.getEnabled()) {
+        if (!member.getEnabled()) {
             return ResponseEntity.status(403).body(Map.of("error", "Account is disabled"));
         }
         
         // 깔끔한 사용자 정보 응답
         Map<String, Object> response = new HashMap<>();
-        response.put("id", user.getId());
-        response.put("email", user.getEmail());
-        response.put("name", user.getName());
-        response.put("profileImageUrl", user.getProfileImageUrl());
-        response.put("provider", user.getProvider().getValue());
-        response.put("role", user.getRole());
-        response.put("enabled", user.getEnabled());
-        response.put("createdAt", user.getCreatedAt());
-        response.put("updatedAt", user.getUpdatedAt());
+        response.put("id", member.getId());
+        response.put("email", member.getEmail());
+        response.put("name", member.getName());
+        response.put("profileImageUrl", member.getProfileImageUrl());
+        response.put("provider", member.getProvider().getValue());
+        response.put("role", member.getRole());
+        response.put("enabled", member.getEnabled());
+        response.put("createdAt", member.getCreatedAt());
+        response.put("updatedAt", member.getUpdatedAt());
         
-        log.info("User info requested via JWT: {}", user.getEmail());
+        log.info("User info requested via JWT: {}", member.getEmail());
         return ResponseEntity.ok(response);
     }
 
@@ -93,7 +93,7 @@ public class AuthController {
      * @param oAuth2User OAuth2 인증된 사용자 정보
      * @return 사용자 정보 응답
      */
-    @GetMapping("/user")
+    @GetMapping("/member")
     public ResponseEntity<Map<String, Object>> getAuthenticatedUser(
             @AuthenticationPrincipal OAuth2User oAuth2User) {
         
@@ -107,7 +107,7 @@ public class AuthController {
         response.put("attributes", oAuth2User.getAttributes());
         response.put("authorities", oAuth2User.getAuthorities());
         
-        log.info("Authenticated user info requested: {}", oAuth2User.getName());
+        log.info("Authenticated member info requested: {}", oAuth2User.getName());
         return ResponseEntity.ok(response);
     }
 
@@ -134,21 +134,21 @@ public class AuthController {
             }
 
             // 리프레시 토큰에서 사용자 ID 추출
-            Long userId = jwtTokenProvider.getUserIdFromToken(refreshToken);
+            Long memberId = jwtTokenProvider.getMemberIdFromToken(refreshToken);
             
             // 사용자 정보 조회
-            Optional<User> userOptional = userRepository.findById(userId);
-            if (userOptional.isEmpty()) {
+            Optional<Member> memberOptional = memberRepository.findById(memberId);
+            if (memberOptional.isEmpty()) {
                 return ResponseEntity.status(401).body(Map.of("error", "User not found"));
             }
-            
-            User user = userOptional.get();
+
+            Member member = memberOptional.get();
             
             // 새로운 액세스 토큰 생성
             String newAccessToken = jwtTokenProvider.createAccessToken(
-                user.getId(), 
-                user.getEmail(), 
-                user.getRole()
+                member.getId(),
+                member.getEmail(),
+                member.getRole()
             );
 
             Map<String, Object> response = new HashMap<>();
@@ -156,7 +156,7 @@ public class AuthController {
             response.put("message", "Token refreshed successfully");
             response.put("expiresIn", 3600); // 1시간 (초 단위)
             
-            log.info("Token refreshed for user: {}", user.getEmail());
+            log.info("Token refreshed for member: {}", member.getEmail());
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
@@ -257,8 +257,8 @@ public class AuthController {
         log.info("General signup API called: {}", signupRequest.getEmail());
         
         try {
-            SignupResponseDto response = userService.signup(signupRequest);
-            log.info("General signup success: userId={}", response.getUserId());
+            SignupResponseDto response = memberService.signup(signupRequest);
+            log.info("General signup success: memberId={}", response.getMemberId());
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
             
         } catch (IllegalArgumentException e) {
@@ -267,7 +267,7 @@ public class AuthController {
             // Error response
             SignupResponseDto errorResponse = SignupResponseDto.builder()
                     .message(e.getMessage())
-                    .userId(null)
+                    .memberId(null)
                     .email(null)
                     .name(null)
                     .build();
@@ -287,8 +287,8 @@ public class AuthController {
         log.info("General login API called: {}", loginRequest.getEmail());
         
         try {
-            LoginResponseDto response = userService.login(loginRequest);
-            log.info("General login success: userId={}", response.getUser().getId());
+            LoginResponseDto response = memberService.login(loginRequest);
+            log.info("General login success: memberId={}", response.getMember().getId());
             return ResponseEntity.ok(response);
             
         } catch (IllegalArgumentException e) {
@@ -297,7 +297,7 @@ public class AuthController {
             // Error response
             LoginResponseDto errorResponse = LoginResponseDto.builder()
                     .accessToken(null)
-                    .user(null)
+                    .member(null)
                     .build();
             
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);

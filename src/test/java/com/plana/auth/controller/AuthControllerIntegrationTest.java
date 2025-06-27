@@ -1,8 +1,8 @@
 package com.plana.auth.controller;
 
-import com.plana.auth.entity.User;
+import com.plana.auth.entity.Member;
 import com.plana.auth.enums.SocialProvider;
-import com.plana.auth.repository.UserRepository;
+import com.plana.auth.repository.MemberRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -41,7 +41,7 @@ class AuthControllerIntegrationTest {
     private WebApplicationContext webApplicationContext;
     
     @Autowired
-    private UserRepository userRepository;  // 데이터베이스 검증용
+    private MemberRepository memberRepository;  // 데이터베이스 검증용
     
     private MockMvc mockMvc;
     
@@ -88,12 +88,12 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isCreated()) // HTTP 201 Created 상태 코드 확인
                 .andExpect(content().contentType("application/json")) // JSON 응답 확인
                 .andExpect(jsonPath("$.message").value("회원가입이 완료되었습니다")) // 성공 메시지 확인
-                .andExpect(jsonPath("$.userId").exists()) // 사용자 ID 존재 확인
+                .andExpect(jsonPath("$.memberId").exists()) // 사용자 ID 존재 확인
                 .andExpect(jsonPath("$.email").value("test@example.com")) // 이메일 확인
                 .andExpect(jsonPath("$.name").value("테스터")); // 이름 확인
         
         // 데이터베이스에 실제로 저장되었는지 검증
-        var savedUser = userRepository.findByEmail("test@example.com");
+        var savedUser = memberRepository.findByEmail("test@example.com");
         assert savedUser.isPresent() : "사용자가 데이터베이스에 저장되지 않았습니다";
         assert savedUser.get().getName().equals("테스터") : "저장된 사용자 이름이 일치하지 않습니다";
     }
@@ -143,9 +143,9 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.message").value("이미 사용중인 이메일입니다")); // 오류 메시지 확인
         
         // 데이터베이스에는 첫 번째 사용자만 존재하는지 검증
-        var users = userRepository.findAll();
-        var duplicateEmailUsers = users.stream()
-                .filter(user -> "duplicate@example.com".equals(user.getEmail()))
+        var members = memberRepository.findAll();
+        var duplicateEmailUsers = members.stream()
+                .filter(member -> "duplicate@example.com".equals(member.getEmail()))
                 .toList();
         assert duplicateEmailUsers.size() == 1 : "중복 이메일로 여러 사용자가 생성되었습니다";
         assert duplicateEmailUsers.get(0).getName().equals("첫번째사용자") : "잘못된 사용자가 저장되었습니다";
@@ -176,7 +176,7 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.message").value("비밀번호가 일치하지 않습니다")); // 오류 메시지 확인
         
         // 데이터베이스에 사용자가 저장되지 않았는지 검증
-        var savedUser = userRepository.findByEmail("mismatch@example.com");
+        var savedUser = memberRepository.findByEmail("mismatch@example.com");
         assert savedUser.isEmpty() : "비밀번호 불일치 오류 시 사용자가 저장되었습니다";
     }
     
@@ -203,7 +203,7 @@ class AuthControllerIntegrationTest {
                 // Bean Validation 오류 메시지는 세부적이라 일단 생략
         
         // 데이터베이스에 사용자가 저장되지 않았는지 검증
-        var savedUser = userRepository.findByEmail("invalid-email-format");
+        var savedUser = memberRepository.findByEmail("invalid-email-format");
         assert savedUser.isEmpty() : "잘못된 이메일 형식 오류 시 사용자가 저장되었습니다";
     }
     
@@ -251,11 +251,11 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.accessToken").exists()) // JWT 토큰 존재 확인
                 .andExpect(jsonPath("$.accessToken").isString()) // JWT 토큰이 문자열인지 확인
                 .andExpect(jsonPath("$.expiresIn").value(3600)) // 만료 시간 확인
-                .andExpect(jsonPath("$.user").exists()) // 사용자 정보 존재 확인
-                .andExpect(jsonPath("$.user.id").exists()) // 사용자 ID 존재 확인
-                .andExpect(jsonPath("$.user.email").value("logintest@example.com")) // 이메일 확인
-                .andExpect(jsonPath("$.user.name").value("로그인테스터")) // 이름 확인
-                .andExpect(jsonPath("$.user.provider").value("local")) // 프로바이더 확인 (소문자)
+                .andExpect(jsonPath("$.member").exists()) // 사용자 정보 존재 확인
+                .andExpect(jsonPath("$.member.id").exists()) // 사용자 ID 존재 확인
+                .andExpect(jsonPath("$.member.email").value("logintest@example.com")) // 이메일 확인
+                .andExpect(jsonPath("$.member.name").value("로그인테스터")) // 이름 확인
+                .andExpect(jsonPath("$.member.provider").value("local")) // 프로바이더 확인 (소문자)
                 .andExpect(jsonPath("$.timestamp").exists()); // 타임스탬프 존재 확인
         
         System.out.println("=== 로그인 성공 테스트 완료 ===");
@@ -323,7 +323,7 @@ class AuthControllerIntegrationTest {
     void login_SocialAccountAttempt_Failure() throws Exception {
         // Given - 소셜 계정 사용자를 직접 데이터베이스에 생성
         // 실제로는 OAuth2를 통해 생성되지만, 테스트에서는 직접 생성
-        var socialUser = User.builder()
+        var socialMember = Member.builder()
                 .email("social@example.com")
                 .name("소셜사용자")
                 .provider(SocialProvider.GOOGLE) // 구글 소셜 로그인
@@ -333,7 +333,7 @@ class AuthControllerIntegrationTest {
                 .enabled(true)
                 .build();
         
-        userRepository.save(socialUser);
+        memberRepository.save(socialMember);
         
         System.out.println("=== 소셜 계정 생성 완료, 일반 로그인 시도 ===");
         

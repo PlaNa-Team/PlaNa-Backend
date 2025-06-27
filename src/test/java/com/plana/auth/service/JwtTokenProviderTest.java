@@ -25,7 +25,7 @@ class JwtTokenProviderTest {
     private final long accessTokenValidity = 3600000L; // 1시간
     private final long refreshTokenValidity = 604800000L; // 7일
     
-    private final Long testUserId = 1L;
+    private final Long testMemberId = 1L;
     private final String testEmail = "test@example.com";
     private final String testRole = "ROLE_USER";
     
@@ -39,7 +39,7 @@ class JwtTokenProviderTest {
     @DisplayName("Access Token 정상 생성 - 이미 구현된 createAccessToken() 검증")
     void createAccessToken_ValidInput_Success() {
         // When - 이미 구현된 createAccessToken() 메서드 호출
-        String token = jwtTokenProvider.createAccessToken(testUserId, testEmail, testRole);
+        String token = jwtTokenProvider.createAccessToken(testMemberId, testEmail, testRole);
         
         // Then - 토큰 생성 결과 검증
         assertThat(token).isNotNull();
@@ -53,7 +53,7 @@ class JwtTokenProviderTest {
     @DisplayName("Refresh Token 정상 생성 - 이미 구현된 createRefreshToken() 검증")
     void createRefreshToken_ValidInput_Success() {
         // When - 이미 구현된 createRefreshToken() 메서드 호출
-        String token = jwtTokenProvider.createRefreshToken(testUserId);
+        String token = jwtTokenProvider.createRefreshToken(testMemberId);
         
         // Then - 토큰 생성 결과 검증
         assertThat(token).isNotNull();
@@ -67,7 +67,7 @@ class JwtTokenProviderTest {
     @DisplayName("유효한 토큰 검증 성공 - 이미 구현된 validateToken() 검증")
     void validateToken_ValidToken_ReturnsTrue() {
         // Given - 유효한 토큰 생성
-        String token = jwtTokenProvider.createAccessToken(testUserId, testEmail, testRole);
+        String token = jwtTokenProvider.createAccessToken(testMemberId, testEmail, testRole);
         
         // When - 이미 구현된 validateToken() 메서드 호출
         boolean isValid = jwtTokenProvider.validateToken(token);
@@ -79,25 +79,25 @@ class JwtTokenProviderTest {
     }
     
     @Test
-    @DisplayName("토큰에서 사용자 ID 추출 - 이미 구현된 getUserIdFromToken() 검증")
-    void getUserIdFromToken_ValidToken_ReturnsUserId() {
+    @DisplayName("토큰에서 사용자 ID 추출 - 이미 구현된 getMemberIdFromToken() 검증")
+    void getMemberIdFromToken_ValidToken_ReturnsMemberId() {
         // Given - 토큰 생성
-        String token = jwtTokenProvider.createAccessToken(testUserId, testEmail, testRole);
+        String token = jwtTokenProvider.createAccessToken(testMemberId, testEmail, testRole);
         
-        // When - 이미 구현된 getUserIdFromToken() 메서드 호출
-        Long extractedUserId = jwtTokenProvider.getUserIdFromToken(token);
+        // When - 이미 구현된 getMemberIdFromToken() 메서드 호출
+        Long extractedMemberId = jwtTokenProvider.getMemberIdFromToken(token);
         
         // Then - 원본 사용자 ID와 일치해야 함
-        assertThat(extractedUserId).isEqualTo(testUserId);
+        assertThat(extractedMemberId).isEqualTo(testMemberId);
         
-        System.out.println("✅ 추출된 사용자 ID: " + extractedUserId);
+        System.out.println("✅ 추출된 사용자 ID: " + extractedMemberId);
     }
     
     @Test
     @DisplayName("토큰에서 이메일 추출 - 이미 구현된 getEmailFromToken() 검증")
     void getEmailFromToken_ValidToken_ReturnsEmail() {
         // Given - 토큰 생성
-        String token = jwtTokenProvider.createAccessToken(testUserId, testEmail, testRole);
+        String token = jwtTokenProvider.createAccessToken(testMemberId, testEmail, testRole);
         
         // When - 이미 구현된 getEmailFromToken() 메서드 호출
         String extractedEmail = jwtTokenProvider.getEmailFromToken(token);
@@ -112,7 +112,7 @@ class JwtTokenProviderTest {
     @DisplayName("토큰에서 권한 추출 - 이미 구현된 getRoleFromToken() 검증")
     void getRoleFromToken_ValidToken_ReturnsRole() {
         // Given - 토큰 생성
-        String token = jwtTokenProvider.createAccessToken(testUserId, testEmail, testRole);
+        String token = jwtTokenProvider.createAccessToken(testMemberId, testEmail, testRole);
         
         // When - 이미 구현된 getRoleFromToken() 메서드 호출
         String extractedRole = jwtTokenProvider.getRoleFromToken(token);
@@ -128,7 +128,7 @@ class JwtTokenProviderTest {
     void getExpirationDateFromToken_ValidToken_ReturnsExpirationDate() {
         // Given - 토큰 생성
         Date beforeCreation = new Date();
-        String token = jwtTokenProvider.createAccessToken(testUserId, testEmail, testRole);
+        String token = jwtTokenProvider.createAccessToken(testMemberId, testEmail, testRole);
         Date afterCreation = new Date();
         
         // When - 이미 구현된 getExpirationDateFromToken() 메서드 호출
@@ -149,7 +149,7 @@ class JwtTokenProviderTest {
     @DisplayName("토큰 만료 여부 확인 - 이미 구현된 isTokenExpired() 검증")
     void isTokenExpired_ValidToken_ReturnsFalse() {
         // Given - 유효한 토큰 생성
-        String token = jwtTokenProvider.createAccessToken(testUserId, testEmail, testRole);
+        String token = jwtTokenProvider.createAccessToken(testMemberId, testEmail, testRole);
         
         // When - 이미 구현된 isTokenExpired() 메서드 호출
         boolean isExpired = jwtTokenProvider.isTokenExpired(token);
@@ -194,7 +194,7 @@ class JwtTokenProviderTest {
                 accessTokenValidity,
                 refreshTokenValidity
         );
-        String tokenWithDifferentSecret = differentProvider.createAccessToken(testUserId, testEmail, testRole);
+        String tokenWithDifferentSecret = differentProvider.createAccessToken(testMemberId, testEmail, testRole);
         
         // When - 원래 provider로 검증
         boolean isValid = jwtTokenProvider.validateToken(tokenWithDifferentSecret);
@@ -209,25 +209,25 @@ class JwtTokenProviderTest {
     @DisplayName("Access Token과 Refresh Token 구조 차이 검증")
     void compareAccessTokenAndRefreshToken_Structure() {
         // Given - 두 종류의 토큰 생성
-        String accessToken = jwtTokenProvider.createAccessToken(testUserId, testEmail, testRole);
-        String refreshToken = jwtTokenProvider.createRefreshToken(testUserId);
+        String accessToken = jwtTokenProvider.createAccessToken(testMemberId, testEmail, testRole);
+        String refreshToken = jwtTokenProvider.createRefreshToken(testMemberId);
         
         // When - 토큰에서 정보 추출
-        Long userIdFromAccess = jwtTokenProvider.getUserIdFromToken(accessToken);
-        Long userIdFromRefresh = jwtTokenProvider.getUserIdFromToken(refreshToken);
+        Long memberIdFromAccess = jwtTokenProvider.getMemberIdFromToken(accessToken);
+        Long memberIdFromRefresh = jwtTokenProvider.getMemberIdFromToken(refreshToken);
         
         String emailFromAccess = jwtTokenProvider.getEmailFromToken(accessToken);
         String roleFromAccess = jwtTokenProvider.getRoleFromToken(accessToken);
         
         // Then - 기본 정보는 동일, 구조적 차이 확인
-        assertThat(userIdFromAccess).isEqualTo(testUserId);
-        assertThat(userIdFromRefresh).isEqualTo(testUserId);
+        assertThat(memberIdFromAccess).isEqualTo(testMemberId);
+        assertThat(memberIdFromRefresh).isEqualTo(testMemberId);
         assertThat(emailFromAccess).isEqualTo(testEmail);
         assertThat(roleFromAccess).isEqualTo(testRole);
         
         // Refresh Token에서는 email, role 추출 시 null일 수 있음 (구현에 따라)
-        System.out.println("✅ Access Token 사용자 ID: " + userIdFromAccess);
-        System.out.println("✅ Refresh Token 사용자 ID: " + userIdFromRefresh);
+        System.out.println("✅ Access Token 사용자 ID: " + memberIdFromAccess);
+        System.out.println("✅ Refresh Token 사용자 ID: " + memberIdFromRefresh);
         System.out.println("✅ Access Token 이메일: " + emailFromAccess);
         System.out.println("✅ Access Token 권한: " + roleFromAccess);
     }
@@ -238,7 +238,7 @@ class JwtTokenProviderTest {
         // Given - 짧은 만료시간으로 새 provider 생성 (1초)
         JwtTokenProvider shortLivedProvider = new JwtTokenProvider(testSecret, 1000L, 2000L);
         
-        String shortToken = shortLivedProvider.createAccessToken(testUserId, testEmail, testRole);
+        String shortToken = shortLivedProvider.createAccessToken(testMemberId, testEmail, testRole);
         
         // When - 즉시 검증 (아직 유효해야 함)
         boolean isValidImmediately = shortLivedProvider.validateToken(shortToken);

@@ -1,7 +1,7 @@
 package com.plana.auth.config;
 
-import com.plana.auth.entity.User;
-import com.plana.auth.repository.UserRepository;
+import com.plana.auth.entity.Member;
+import com.plana.auth.repository.MemberRepository;
 import com.plana.auth.service.JwtTokenProvider;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -30,7 +30,7 @@ import java.util.Optional;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
-    private final UserRepository userRepository;
+    private final MemberRepository memberRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, 
@@ -43,33 +43,33 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (token != null && jwtTokenProvider.validateToken(token)) {
             try {
                 // 토큰에서 사용자 ID 추출
-                Long userId = jwtTokenProvider.getUserIdFromToken(token);
+                Long memberId = jwtTokenProvider.getMemberIdFromToken(token);
                 
                 // 사용자 정보 조회
-                Optional<User> userOptional = userRepository.findById(userId);
+                Optional<Member> memberOptional = memberRepository.findById(memberId);
                 
-                if (userOptional.isPresent()) {
-                    User user = userOptional.get();
+                if (memberOptional.isPresent()) {
+                    Member member = memberOptional.get();
                     
                     // 계정이 활성화되어 있는지 확인
-                    if (user.getEnabled()) {
+                    if (member.getEnabled()) {
                         // Spring Security 인증 객체 생성
                         UsernamePasswordAuthenticationToken authentication = 
                             new UsernamePasswordAuthenticationToken(
-                                user,  // Principal (인증된 사용자 정보)
+                                member,  // Principal (인증된 사용자 정보)
                                 null,  // Credentials (비밀번호 등, JWT에서는 불필요)
-                                Collections.singletonList(new SimpleGrantedAuthority(user.getRole())) // 권한
+                                Collections.singletonList(new SimpleGrantedAuthority(member.getRole())) // 권한
                             );
                         
                         // SecurityContext에 인증 정보 설정
                         SecurityContextHolder.getContext().setAuthentication(authentication);
                         
-                        log.debug("JWT authentication successful for user: {}", user.getEmail());
+                        log.debug("JWT authentication successful for member: {}", member.getEmail());
                     } else {
-                        log.warn("User account is disabled: {}", user.getEmail());
+                        log.warn("Member account is disabled: {}", member.getEmail());
                     }
                 } else {
-                    log.warn("User not found for token userId: {}", userId);
+                    log.warn("Member not found for token memberId: {}", memberId);
                 }
                 
             } catch (Exception e) {

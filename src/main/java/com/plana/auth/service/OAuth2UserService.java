@@ -1,8 +1,8 @@
 package com.plana.auth.service;
 
-import com.plana.auth.entity.User;
+import com.plana.auth.entity.Member;
 import com.plana.auth.enums.SocialProvider;
-import com.plana.auth.repository.UserRepository;
+import com.plana.auth.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.GrantedAuthority;
@@ -26,7 +26,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class OAuth2UserService extends DefaultOAuth2UserService {
 
-    private final UserRepository userRepository;
+    private final MemberRepository memberRepository;
 
     /**
      * OAuth2 로그인 성공 시 호출되는 메서드
@@ -42,10 +42,10 @@ public class OAuth2UserService extends DefaultOAuth2UserService {
         log.info("OAuth2 Login attempt from: {}", registrationId);
         
         // 사용자 정보 처리 및 DB 저장/업데이트
-        User user = processOAuth2User(registrationId, oAuth2User);
+        Member member = processOAuth2User(registrationId, oAuth2User);
         
         // 처리된 사용자 정보를 OAuth2User로 래핑해서 반환
-        return new CustomOAuth2User(user, oAuth2User.getAttributes());
+        return new CustomOAuth2User(member, oAuth2User.getAttributes());
     }
 
     /**
@@ -54,7 +54,7 @@ public class OAuth2UserService extends DefaultOAuth2UserService {
      * @param oAuth2User OAuth2에서 받은 사용자 정보
      * @return 처리된 User 엔티티
      */
-    private User processOAuth2User(String registrationId, OAuth2User oAuth2User) {
+    private Member processOAuth2User(String registrationId, OAuth2User oAuth2User) {
         // 소셜 제공업체별로 사용자 정보 추출
         OAuth2UserInfo userInfo = OAuth2UserInfoFactory.getOAuth2UserInfo(registrationId, oAuth2User.getAttributes());
         
@@ -64,15 +64,15 @@ public class OAuth2UserService extends DefaultOAuth2UserService {
 
         // 소셜 제공업체와 제공업체 ID로 기존 사용자 조회
         SocialProvider provider = SocialProvider.fromValue(registrationId);
-        User user = userRepository.findByProviderAndProviderId(provider, userInfo.getId())
+        Member member = memberRepository.findByProviderAndProviderId(provider, userInfo.getId())
                 .orElse(null);
 
-        if (user != null) {
+        if (member != null) {
             // 기존 사용자인 경우: 정보 업데이트
-            return updateExistingUser(user, userInfo);
+            return updateExistingUser(member, userInfo);
         } else {
             // 새로운 사용자인 경우: 회원가입 처리
-            return registerNewUser(provider, userInfo);
+            return registerNewMember(provider, userInfo);
         }
     }
 
@@ -82,14 +82,14 @@ public class OAuth2UserService extends DefaultOAuth2UserService {
      * @param userInfo 새로운 사용자 정보
      * @return 업데이트된 사용자
      */
-    private User updateExistingUser(User existingUser, OAuth2UserInfo userInfo) {
+    private Member updateExistingUser(Member existingUser, OAuth2UserInfo userInfo) {
         log.info("Updating existing user: {}", existingUser.getEmail());
         
         // 이름이나 프로필 이미지가 변경되었을 수 있으므로 업데이트
         existingUser.setName(userInfo.getName());
         existingUser.setProfileImageUrl(userInfo.getImageUrl());
         
-        return userRepository.save(existingUser);
+        return memberRepository.save(existingUser);
     }
 
     /**
@@ -98,18 +98,18 @@ public class OAuth2UserService extends DefaultOAuth2UserService {
      * @param userInfo 사용자 정보
      * @return 새로 생성된 사용자
      */
-    private User registerNewUser(SocialProvider provider, OAuth2UserInfo userInfo) {
+    private Member registerNewMember(SocialProvider provider, OAuth2UserInfo userInfo) {
         log.info("Registering new user from {}: {}", provider, userInfo.getEmail());
         
         // 같은 이메일로 다른 소셜 계정이 있는지 확인
-        if (userRepository.existsByEmail(userInfo.getEmail())) {
+        if (memberRepository.existsByEmail(userInfo.getEmail())) {
             throw new OAuth2AuthenticationException(
                 "Email already exists with different social provider: " + userInfo.getEmail()
             );
         }
 
         // 새 사용자 생성
-        User newUser = User.builder()
+        Member newMember = Member.builder()
                 .email(userInfo.getEmail())
                 .name(userInfo.getName())
                 .profileImageUrl(userInfo.getImageUrl())
@@ -119,7 +119,7 @@ public class OAuth2UserService extends DefaultOAuth2UserService {
                 .enabled(true) // 계정 활성화
                 .build();
 
-        return userRepository.save(newUser);
+        return memberRepository.save(newMember);
     }
 
     /**
@@ -226,11 +226,11 @@ public class OAuth2UserService extends DefaultOAuth2UserService {
      * 사용자 정보를 포함한 커스텀 OAuth2User
      */
     public static class CustomOAuth2User implements OAuth2User {
-        private final User user;
+        private final Member member;
         private final Map<String, Object> attributes;
 
-        public CustomOAuth2User(User user, Map<String, Object> attributes) {
-            this.user = user;
+        public CustomOAuth2User(Member member, Map<String, Object> attributes) {
+            this.member = member;
             this.attributes = attributes;
         }
 
@@ -241,19 +241,19 @@ public class OAuth2UserService extends DefaultOAuth2UserService {
 
         @Override
         public String getName() {
-            return user.getName();
+            return member.getName();
         }
 
         // OAuth2AuthenticatedPrincipal 인터페이스의 필수 메서드
         @Override
         public Collection<? extends GrantedAuthority> getAuthorities() {
             // 사용자 권한을 GrantedAuthority 컬렉션으로 반환
-            return Collections.singletonList(new SimpleGrantedAuthority(user.getRole()));
+            return Collections.singletonList(new SimpleGrantedAuthority(member.getRole()));
         }
 
-        // 추가: User 엔티티 정보에 쉽게 접근할 수 있도록
-        public User getUser() {
-            return user;
+        // 추가: Member 엔티티 정보에 쉽게 접근할 수 있도록
+        public Member getUser() {
+            return member;
         }
     }
 }

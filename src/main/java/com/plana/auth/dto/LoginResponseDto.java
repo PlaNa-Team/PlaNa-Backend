@@ -23,7 +23,7 @@ public class LoginResponseDto {
     private Long expiresIn = 3600L; // 1시간
     
     // 사용자 정보
-    private UserInfoDto user;
+    private MemberInfoDto member;
     
     // 응답 시간
     @Builder.Default
@@ -36,7 +36,7 @@ public class LoginResponseDto {
     @AllArgsConstructor
     @NoArgsConstructor
     @Builder
-    public static class UserInfoDto {
+    public static class MemberInfoDto {
         private Long id;
         private String email;
         private String name;
