@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -67,7 +68,11 @@ public class SecurityConfig {
                     "/api/auth/test-jwt",     // JWT 테스트 API
                     "/api/auth/signup",       // 일반 회원가입 API
                     "/api/auth/login",        // 일반 로그인 API
-                    "/error"                  // 에러 페이지
+                    "/error",                 // 에러 페이지
+                    "/v3/api-docs/**",        // Swaager가 자동 생성하는 API 명세 JSON 데이터가 위치하는 기본 URL 경로
+                    "/swagger-ui/**",         // Swagger UI관련 정적리소스가 위치하는 경로
+                    "/swagger-ui.html"        // Swagger UI를 열기 위한 메인 HTML 페이지 URL
+
                 ).permitAll()
                 
                 // 관리자만 접근 가능한 엔드포인트
@@ -149,5 +154,14 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public WebSecurityCustomizer webSecurityCustomizer() {
+        return web -> web.ignoring().requestMatchers(
+                "/v3/api-docs/**",
+                "/swagger-ui/**",
+                "/swagger-ui.html"
+        );
     }
 }
