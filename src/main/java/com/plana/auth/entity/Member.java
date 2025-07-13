@@ -27,14 +27,22 @@ public class Member {
     @Column(nullable = false, unique = true, length = 100)
     private String email;
 
+    // (임시) 사용자 로그인 시 입력하는 ID, 실제 사용하는지 정확하지 않아 일단은 nullable = true 설정
+    @Column(unique = true, length = 100)
+    private String loginId;
+
     @Column(nullable = false, length = 50)
     private String name;
     
     // 비밀번호 (일반 로그인용, 소셜 로그인시 null)
     @Column(length = 255)
     private String password;
-    
-    // 프로필 이미지 URL (소셜 로그인 시 제공받음)
+
+    // 닉에님 (없으면 이름 사용?, 우선은 nullable)
+    @Column(length = 50)
+    private String nickname;
+
+    // (임시) 프로필 이미지 URL (소셜 로그인 시 제공받음)
     @Column(length = 500)
     private String profileImageUrl;
     
@@ -63,6 +71,11 @@ public class Member {
     // 마지막 수정 시간
     @Column(nullable = false)
     private LocalDateTime updatedAt;
+
+    // 탈퇴 여부
+    @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT false")
+    private boolean isDeleted;
+
     
     // 엔티티 저장 전 자동 실행 (생성 시간 설정)
     @PrePersist
