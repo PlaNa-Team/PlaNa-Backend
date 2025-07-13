@@ -1,9 +1,6 @@
 package com.plana.auth.controller;
 
-import com.plana.auth.dto.LoginRequestDto;
-import com.plana.auth.dto.LoginResponseDto;
-import com.plana.auth.dto.SignupRequestDto;
-import com.plana.auth.dto.SignupResponseDto;
+import com.plana.auth.dto.*;
 import com.plana.auth.entity.Member;
 import com.plana.auth.repository.MemberRepository;
 import com.plana.auth.service.JwtTokenProvider;
@@ -52,14 +49,14 @@ public class AuthController {
      */
     @GetMapping("/me")
     public ResponseEntity<Map<String, Object>> getCurrentUser(
-            @AuthenticationPrincipal Member principal) {
+            @AuthenticationPrincipal AuthenticatedMemberDto authMember) {
         
-        if (principal == null) {
+        if (authMember == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Not authenticated"));
         }
         
         // DB에서 최신 사용자 정보 조회 (토큰의 정보가 오래될 수 있음)
-        Optional<Member> memberOptional = memberRepository.findById(principal.getId());
+        Optional<Member> memberOptional = memberRepository.findById(authMember.getId());
         
         if (memberOptional.isEmpty()) {
             return ResponseEntity.status(404).body(Map.of("error", "User not found"));

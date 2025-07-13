@@ -60,14 +60,19 @@ public class SecurityConfig {
                     "/",
                     "/api/test/**",           // 테스트 API (기존)
                     "/api/download/**",       // 파일 다운로드 API (기존)
-                    "/oauth2/**",             // OAuth2 로그인 엔드포인트
-                    "/login/**",              // 로그인 관련 엔드포인트
-                    "/auth/**",               // 인증 관련 엔드포인트 (프론트엔드)
                     "/api/auth/status",       // 상태 확인 API
                     "/api/auth/hello",        // 테스트 API
                     "/api/auth/test-jwt",     // JWT 테스트 API
-                    "/api/auth/signup",       // 일반 회원가입 API
-                    "/api/auth/login",        // 일반 로그인 API
+
+                    "/api/members",             // POST: 회원가입, GET: 이메일 중복 확인
+                    "/api/auth/signup",         // 일반 회원가입 API
+                    "/api/auth/login",          // 일반 로그인 API
+                    "/api/auth/social-login",   // OAuth2 로그인 엔드포인트
+                    "/api/auth/social-signup",  // 소셜 회원가입
+                    "/api/auth/reset/verify",   // 인증 코드 확인
+                    "/api/auth/id-recovery",    // 아이디 찾기
+                    "/api/auth/password-reset/verify", // 비밀번호 찾기
+
                     "/error",                 // 에러 페이지
                     "/v3/api-docs/**",        // Swaager가 자동 생성하는 API 명세 JSON 데이터가 위치하는 기본 URL 경로
                     "/swagger-ui/**",         // Swagger UI관련 정적리소스가 위치하는 경로
