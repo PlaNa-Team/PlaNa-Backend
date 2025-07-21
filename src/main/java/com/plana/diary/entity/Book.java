@@ -29,7 +29,7 @@ public class Book {
     private String author;
 
     @Column(length = 50)
-    private String genere;
+    private String genre;
 
     @Column(length = 50)
     private String publisher;
