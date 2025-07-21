@@ -24,7 +24,7 @@ public class DiaryTag {
 
     //태그된 사용자 (공유 대상자)
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "diary_id", nullable = false)
+    @JoinColumn(name = "member_id", nullable = false)
     private Member member;
 
     //상태: 작성자, 미설정, 수락, 거절, 삭제
