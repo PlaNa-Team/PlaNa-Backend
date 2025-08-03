@@ -25,7 +25,7 @@ public class MemberController {
             throw new IllegalArgumentException("아이디를 입력해주세요.");
         }
 
-        boolean available = memberService.isLoginIdAvailable(loginId);
+        boolean available = memberService.isLoginIdExists(loginId);
 
         return ResponseEntity.ok(Map.of(
                 "available", available,

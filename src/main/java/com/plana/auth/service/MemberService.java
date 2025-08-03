@@ -162,7 +162,8 @@ public class MemberService {
     }
 
     // 회원가입 시 아이디 중복 확인
-    public boolean isLoginIdAvailable(String loginId) {
+    @Transactional(readOnly = true)
+    public boolean isLoginIdExists(String loginId) {
         return !memberRepository.existsByLoginId(loginId);
     }
 }
