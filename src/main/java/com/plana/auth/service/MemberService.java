@@ -160,4 +160,9 @@ public class MemberService {
         return memberRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다"));
     }
+
+    // 회원가입 시 아이디 중복 확인
+    public boolean isLoginIdAvailable(String loginId) {
+        return !memberRepository.existsByLoginId(loginId);
+    }
 }

@@ -66,6 +66,7 @@ public class GlobalExceptionHandler {
         log.warn("Business logic error occurred: {}", ex.getMessage());
         
         Map<String, Object> response = new HashMap<>();
+        response.put("status", HttpStatus.BAD_REQUEST.value());
         response.put("message", ex.getMessage());
         response.put("timestamp", System.currentTimeMillis());
         response.put("error", "Bad Request");

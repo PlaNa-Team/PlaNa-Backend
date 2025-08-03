@@ -36,4 +36,7 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     
     // 소셜 계정 중복 확인 (같은 소셜 계정으로 이미 가입했는지 확인)
     boolean existsByProviderAndProviderId(SocialProvider provider, String providerId);
+
+    // 아이디 중복 확인 (회원가입 시 사용)
+    boolean existsByLoginId(String loginId);
 }
