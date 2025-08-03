@@ -38,10 +38,10 @@ public class Project {
     @Column(length = 200, nullable = false)
     private String title;
 
-    @Column(name = "start_month", nullable = false)
+    @Column(name = "start_month")
     private Integer startMonth;
 
-    @Column(name = "end_month", nullable = false)
+    @Column(name = "end_month")
     private Integer endMonth;
 
     @Column(nullable = false)
