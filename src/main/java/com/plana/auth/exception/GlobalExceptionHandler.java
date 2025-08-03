@@ -39,7 +39,8 @@ public class GlobalExceptionHandler {
                 .findFirst()
                 .map(error -> error.getDefaultMessage())
                 .orElse("입력값이 올바르지 않습니다");
-        
+
+        response.put("status", HttpStatus.BAD_REQUEST.value());
         response.put("message", errorMessage);
         response.put("timestamp", System.currentTimeMillis());
         response.put("error", "Validation Failed");
@@ -86,6 +87,8 @@ public class GlobalExceptionHandler {
         log.error("Unexpected error occurred", ex);
         
         Map<String, Object> response = new HashMap<>();
+
+        response.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
         response.put("message", "서버에서 오류가 발생했습니다");
         response.put("timestamp", System.currentTimeMillis());
         response.put("error", "Internal Server Error");
