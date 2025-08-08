@@ -11,7 +11,11 @@ import lombok.*;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-@Table(name = "diary_tag")
+@Table(name = "diary_tag",
+        uniqueConstraints = {
+                @UniqueConstraint(columnNames = {"diary_id", "member_id"})
+        }
+        )
 public class DiaryTag {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,8 +27,9 @@ public class DiaryTag {
     private Diary diary;
 
     //태그된 사용자 (공유 대상자)
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "member_id", nullable = false)
+    // 회원 태그면 Member 연결, 비회원 태그면 null
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "member_id", nullable = true)
     private Member member;
 
     //상태: 작성자, 미설정, 수락, 거절, 삭제

@@ -15,7 +15,7 @@ public class Movie {
     private Long id;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name="diary_id", nullable = false)
+    @JoinColumn(name="diary_id", nullable = false, unique = true)
     private Diary diary;
 
     @Column(nullable = false, length = 100)

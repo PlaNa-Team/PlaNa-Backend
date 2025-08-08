@@ -12,5 +12,5 @@ import lombok.Setter;
 public class DiaryTagRequestDto {
     private Long memberId;
     private Long diaryId;
-    private String tagText;
+    private String tagText; // 사용자 입력태그
 }
