@@ -19,7 +19,7 @@ public class Book {
 
     // Diary와 1대1 관계
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "diary_id", nullable = false)
+    @JoinColumn(name = "diary_id", nullable = false, unique = true)
     private Diary diary;
 
     @Column(nullable = false, length = 100)
