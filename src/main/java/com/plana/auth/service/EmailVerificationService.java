@@ -25,6 +25,8 @@ public class EmailVerificationService {
 
     private String codeKey(String email) { return "email:verify:code:" + email; }
     private String throttleKey(String email) { return "email:verify:throttle:" + email; }
+    private String verifiedKey(String email) { return "email:verify:ok:" + email; }
+    public enum VerifyResult { OK, EXPIRED, MISMATCH, NOT_FOUND }
 
     @Transactional
     public boolean sendCodeIfNotDuplicated(String email) {
@@ -61,5 +63,22 @@ public class EmailVerificationService {
     private String generateCode() {
         int n = RAND.nextInt(1_000_000);    // 0 ~ 999999
         return String.format("%06d", n);    // 앞자리가 0이어도 6자리 유지
+    }
+
+    public VerifyResult verifyCode(String rawEmail, String inputCode) {
+        String email = rawEmail.trim().toLowerCase();
+        String key = codeKey(email);
+        String saved = redis.opsForValue().get(key);
+        if (saved == null) {
+            // TTL 지나서 사라졌거나, 애초에 발급이 안 됨
+            return VerifyResult.EXPIRED; // 또는 NOT_FOUND로 구분해도 됨
+        }
+        if (!saved.equals(inputCode)) {
+            return VerifyResult.MISMATCH;
+        }
+        // 성공: 코드 제거 + "인증 완료" 플래그(예: 30분 유지)
+        redis.delete(key);
+        redis.opsForValue().set(verifiedKey(email), "true", Duration.ofMinutes(30)); // 30분동안 해당 이메일 인증 확인 했다는 표시를 가짐
+        return VerifyResult.OK;
     }
 }

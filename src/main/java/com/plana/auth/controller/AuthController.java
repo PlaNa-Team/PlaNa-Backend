@@ -331,4 +331,16 @@ public class AuthController {
                 ? ResponseEntity.status(409).body(EmailSendResponseDto.duplicated())
                 : ResponseEntity.ok(EmailSendResponseDto.sent());
     }
+
+    // 이메일 인증번호 확인
+    @PostMapping("/email/verify")
+    public ResponseEntity<?> verify(@Valid @RequestBody VerifyCodeRequestDto req) {
+        var r = emailVerificationService.verifyCode(req.getEmail(), req.getCode());
+        return switch (r) {
+            case OK -> ResponseEntity.ok(Map.of("status", 200, "verified", true, "message", "이메일 인증이 완료되었습니다."));
+            case MISMATCH -> ResponseEntity.badRequest().body(Map.of("status", 400, "verified", false, "message", "인증번호가 일치하지 않습니다."));
+            case EXPIRED, NOT_FOUND -> ResponseEntity.status(410).body(Map.of("status", 410, "verified", false, "message", "인증번호가 만료되었거나 존재하지 않습니다."));
+        };
+    }
+
 }
