@@ -3,6 +3,7 @@ package com.plana.auth.controller;
 import com.plana.auth.dto.*;
 import com.plana.auth.entity.Member;
 import com.plana.auth.repository.MemberRepository;
+import com.plana.auth.service.EmailVerificationService;
 import com.plana.auth.service.JwtTokenProvider;
 import com.plana.auth.service.MemberService;
 import jakarta.servlet.http.Cookie;
@@ -39,6 +40,7 @@ public class AuthController {
     private final JwtTokenProvider jwtTokenProvider;
     private final MemberRepository memberRepository;
     private final MemberService memberService;
+    private final EmailVerificationService emailVerificationService;
     
 
     /**
@@ -318,5 +320,15 @@ public class AuthController {
             }
         }
         return null;
+    }
+
+    // 이메일 인증번호 발송
+    @PostMapping("/email/verification-code")
+    public ResponseEntity<EmailSendResponseDto> sendVerificationCode(@Valid @RequestBody EmailSendRequestDto request) {
+        String email = request.getEmail().trim().toLowerCase();
+        boolean duplicated = emailVerificationService.sendCodeIfNotDuplicated(email);
+        return duplicated
+                ? ResponseEntity.status(409).body(EmailSendResponseDto.duplicated())
+                : ResponseEntity.ok(EmailSendResponseDto.sent());
     }
 }

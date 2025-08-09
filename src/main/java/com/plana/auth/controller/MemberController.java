@@ -18,7 +18,7 @@ public class MemberController {
     private final MemberService memberService;
 
     // 아이디 중복 확인
-    @GetMapping("/id-check")
+    @GetMapping("/check-id")
     public ResponseEntity<Map<String, Object>> checkLoginId(@RequestParam String loginId) {
 
         if (loginId == null || loginId.trim().isEmpty()) {
