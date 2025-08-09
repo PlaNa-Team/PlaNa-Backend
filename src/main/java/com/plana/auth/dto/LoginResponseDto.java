@@ -28,18 +28,4 @@ public class LoginResponseDto {
     // 응답 시간
     @Builder.Default
     private Long timestamp = System.currentTimeMillis();
-    
-    /**
-     * 로그인 응답에 포함될 사용자 정보 DTO
-     */
-    @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
-    @Builder
-    public static class MemberInfoDto {
-        private Long id;
-        private String email;
-        private String name;
-        private String provider; // LOCAL, GOOGLE, KAKAO 등
-    }
 }

@@ -1,11 +1,10 @@
 package com.plana.auth.service;
 
-import com.plana.auth.dto.LoginRequestDto;
-import com.plana.auth.dto.LoginResponseDto;
-import com.plana.auth.dto.SignupRequestDto;
-import com.plana.auth.dto.SignupResponseDto;
+import com.plana.auth.dto.*;
 import com.plana.auth.entity.Member;
 import com.plana.auth.enums.SocialProvider;
+import com.plana.auth.exception.ForbiddenException;
+import com.plana.auth.exception.UnauthorizedException;
 import com.plana.auth.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -89,7 +88,7 @@ public class MemberService {
         return SignupResponseDto.builder()
                 .status(201)
                 .message("회원가입 성공")
-                .data(SignupResponseDto.DataDto.builder()
+                .data(MemberInfoDto.builder()
                         .id(savedMember.getId())
                         .name(savedMember.getName())
                         .login_id(savedMember.getLoginId())
@@ -114,21 +113,21 @@ public class MemberService {
         
         // 1. 이메일로 사용자 조회
         Member member = memberRepository.findByEmail(loginRequest.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다"));
+                .orElseThrow(() -> new UnauthorizedException("이메일 또는 비밀번호가 올바르지 않습니다"));
         
         // 2. 일반 로그인 사용자인지 확인 (소셜 로그인 사용자는 password가 null)
         if (member.getProvider() != SocialProvider.LOCAL || member.getPassword() == null) {
-            throw new IllegalArgumentException("소셜 로그인으로 가입된 계정입니다. 소셜 로그인을 사용해주세요");
+            throw new UnauthorizedException("소셜 로그인으로 가입된 계정입니다. 소셜 로그인을 사용해주세요");
         }
         
         // 3. 계정 활성화 상태 확인
         if (!member.getEnabled()) {
-            throw new IllegalArgumentException("비활성화된 계정입니다. 관리자에게 문의하세요");
+            throw new ForbiddenException("비활성화된 계정입니다. 관리자에게 문의하세요");
         }
         
         // 4. 비밀번호 검증
         if (!passwordEncoder.matches(loginRequest.getPassword(), member.getPassword())) {
-            throw new IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다");
+            throw new UnauthorizedException("이메일 또는 비밀번호가 올바르지 않습니다");
         }
         
         // 5. JWT 토큰 생성 (기존 소셜 로그인과 동일한 방식)
@@ -141,11 +140,15 @@ public class MemberService {
         log.info("일반 로그인 성공: memberId={}, email={}", member.getId(), member.getEmail());
         
         // 6. 응답 DTO 생성 (소셜 로그인과 동일한 구조)
-        LoginResponseDto.MemberInfoDto memberInfo = LoginResponseDto.MemberInfoDto.builder()
+        MemberInfoDto memberInfo = MemberInfoDto.builder()
                 .id(member.getId())
+                .nickname(member.getNickname())
+                .login_id(member.getLoginId())
                 .email(member.getEmail())
                 .name(member.getName())
                 .provider(member.getProvider().getValue())
+                .created_at(member.getCreatedAt())
+                .updated_at(member.getUpdatedAt())
                 .build();
         
         return LoginResponseDto.builder()

@@ -99,4 +99,29 @@ public class GlobalExceptionHandler {
                 .header("Content-Type", "application/json")
                 .body(response);
     }
+
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<Map<String, Object>> handleUnauthorized(UnauthorizedException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("status", HttpStatus.UNAUTHORIZED.value());
+        body.put("message", ex.getMessage());
+        body.put("timestamp", System.currentTimeMillis());
+        body.put("error", "Unauthorized");
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .header("Content-Type", "application/json")
+                .body(body);
+    }
+
+    @ExceptionHandler({ ForbiddenException.class, org.springframework.security.access.AccessDeniedException.class })
+    public ResponseEntity<Map<String, Object>> handleForbidden(RuntimeException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("status", HttpStatus.FORBIDDEN.value());
+        body.put("message", ex.getMessage());
+        body.put("timestamp", System.currentTimeMillis());
+        body.put("error", "Forbidden");
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .header("Content-Type", "application/json")
+                .body(body);
+    }
+
 }

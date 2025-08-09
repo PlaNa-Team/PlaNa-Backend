@@ -57,6 +57,8 @@ class MemberServiceTest {
         // 테스트용 유효한 회원가입 요청 데이터
         validSignupRequest = SignupRequestDto.builder()
                 .email("test@example.com")
+                .loginId("test")
+                .nickname("test")
                 .password("password123")
                 .passwordConfirm("password123")
                 .name("테스터")

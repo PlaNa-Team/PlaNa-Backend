@@ -268,23 +268,9 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<LoginResponseDto> login(@Valid @RequestBody LoginRequestDto loginRequest) {
         log.info("General login API called: {}", loginRequest.getEmail());
-        
-        try {
-            LoginResponseDto response = memberService.login(loginRequest);
-            log.info("General login success: memberId={}", response.getMember().getId());
-            return ResponseEntity.ok(response);
-            
-        } catch (IllegalArgumentException e) {
-            log.warn("General login failed: {}", e.getMessage());
-            
-            // Error response
-            LoginResponseDto errorResponse = LoginResponseDto.builder()
-                    .accessToken(null)
-                    .member(null)
-                    .build();
-            
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-        }
+
+        LoginResponseDto response = memberService.login(loginRequest);
+        return ResponseEntity.ok(response);
     }
     
 
