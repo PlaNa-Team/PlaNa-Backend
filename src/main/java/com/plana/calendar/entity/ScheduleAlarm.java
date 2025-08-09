@@ -9,12 +9,12 @@ import lombok.NoArgsConstructor;
 
 /* 일정별 알림 설정을 저장하는 엔티티 */
 @Entity
-@Table(name = "alarm")
+@Table(name = "schedule_alarm")
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class Alarm {
+public class ScheduleAlarm {
     
     // 내부 식별자(PK)
     @Id

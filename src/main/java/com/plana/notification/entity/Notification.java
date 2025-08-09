@@ -1,7 +1,7 @@
 package com.plana.notification.entity;
 
 import com.plana.auth.entity.Member;
-import com.plana.calendar.entity.Alarm;
+import com.plana.calendar.entity.ScheduleAlarm;
 import com.plana.diary.entity.DiaryTag;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -25,15 +25,15 @@ public class Notification {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    // 일정 알림 참조 (FK: alarm_id)
+    // 일정 알림 참조 (FK: schedule_alarm_id)
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "alarm_id")
-    private Alarm alarm;
+    @JoinColumn(name = "schedule_alarm_id")
+    private ScheduleAlarm scheduleAlarm;
     
-    // 다이어리 태그 참조 (FK: tag_id)
+    // 다이어리 태그 참조 (FK: diary_tag_id)
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "tag_id")
-    private DiaryTag tag;
+    @JoinColumn(name = "diary_tag_id")
+    private DiaryTag diaryTag;
     
     // 알림 받을 사용자 (FK: member_id)
     @ManyToOne(fetch = FetchType.LAZY)
