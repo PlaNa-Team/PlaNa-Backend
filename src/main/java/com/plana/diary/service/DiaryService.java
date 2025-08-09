@@ -15,4 +15,7 @@ public interface DiaryService {
     // 월간 다이어리 조회
     DiaryMonthlyResponseDto getMonthlyDiaries(Long memberId, int year, int month);
 
+    // 다이어리 삭제
+    void deleteDiary(Long diaryId, Long memberId);
+
 }

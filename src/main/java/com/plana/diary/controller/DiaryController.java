@@ -1,6 +1,7 @@
 package com.plana.diary.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.plana.auth.dto.AuthenticatedMemberDto;
 import com.plana.auth.service.JwtTokenProvider;
 import com.plana.diary.dto.request.BookContentRequestDto;
 import com.plana.diary.dto.request.DailyContentRequestDto;
@@ -15,7 +16,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
@@ -106,5 +110,25 @@ public class DiaryController {
                         .build();
 
         return ResponseEntity.ok(res);
+    }
+
+    //다이어리 삭제
+    @DeleteMapping("/diaries/{diaryId}")
+    public ResponseEntity<ApiResponse<Map<String, String>>> deleteDiary(
+            @AuthenticationPrincipal AuthenticatedMemberDto authMember,
+            @PathVariable Long diaryId){
+        // 로그인 사용자 ID
+        Long memberId = authMember.getId();
+
+        // 서비스 호출
+        diaryService.deleteDiary(diaryId, memberId);
+
+        // 응답생성
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        200,
+                        Map.of("message", "다이어리가 삭제되었습니다.")
+                )
+        );
     }
 }
