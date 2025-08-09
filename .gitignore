@@ -32,8 +32,10 @@ build/
 ### VS Code ###
 .vscode/
 
+CLAUDE.md
 *merged.md
 *.properties
+src/main/resources/datasource.properties
 src/main/resources/application-private.properties
 src/test/resources/application-test.yml
 docs/*
