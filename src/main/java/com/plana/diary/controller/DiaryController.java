@@ -9,6 +9,7 @@ import com.plana.diary.dto.request.MovieContentRequestDto;
 import com.plana.diary.dto.response.ApiResponse;
 import com.plana.diary.dto.response.DiaryCreateResponseDto;
 import com.plana.diary.dto.response.DiaryDetailResponseDto;
+import com.plana.diary.dto.response.DiaryMonthlyResponseDto;
 import com.plana.diary.service.DiaryService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -75,5 +76,35 @@ public class DiaryController {
         DiaryDetailResponseDto responseDto = diaryService.getDiaryDetail(diaryId, memberId);
 
         return ResponseEntity.ok(responseDto);
+    }
+
+
+    //월간 다이어리 조회
+    @GetMapping("/diaries")
+    public ResponseEntity<ApiResponse<DiaryMonthlyResponseDto>> getMonthlyDiaries(
+            @RequestParam int year,
+            @RequestParam int month,
+            HttpServletRequest request
+    ){
+        // JWT 토큰 확인
+        String token = jwtTokenProvider.resolveToken(request);
+        if (token == null){
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        Long memberId = jwtTokenProvider.getMemberIdFromToken(token);
+
+        // 서비스 호출
+        DiaryMonthlyResponseDto data = diaryService.getMonthlyDiaries(memberId, year, month);
+
+        // 응답
+        String msg = String.format("%d월 월간 다이어리 데이터 조회 성공", month);
+        ApiResponse<DiaryMonthlyResponseDto> res =
+                ApiResponse.<DiaryMonthlyResponseDto>builder()
+                        .status(200)
+                        .message(msg)
+                        .body(new ApiResponse.Body<>(data))  // data를 body 안에 넣기
+                        .build();
+
+        return ResponseEntity.ok(res);
     }
 }

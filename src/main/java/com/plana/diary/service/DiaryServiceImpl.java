@@ -15,10 +15,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.time.LocalDate;
+import java.time.temporal.TemporalAdjusters;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor // 생성자 자동 주입 (final 필드)
@@ -210,6 +210,7 @@ public class DiaryServiceImpl implements DiaryService {
         );
     }
 
+
     private DiaryContentResponseDto mapContentToDto(Diary diary) {
         return switch (diary.getType()) {
             case DAILY -> {
@@ -249,5 +250,76 @@ public class DiaryServiceImpl implements DiaryService {
                         .build();
             }
         };
+    }
+
+    //월간 다이어리 조회
+    @Override
+    public DiaryMonthlyResponseDto getMonthlyDiaries(Long memberId, int year, int month){
+        if ( month < 1 || month > 12 ){
+            throw new IllegalArgumentException("월은 1~12 사이여야 합니다.");
+        }
+
+        // 사용자 존재 확인
+        memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자 정보를 찾을 수 없습니다."));
+
+        // 해당 월의 시작과 끝
+        //LocalDate.of(년, 월, 일) : 해당 날짜의 LocalDate 객체 생성
+        LocalDate start = LocalDate.of(year, month, 1);
+        //start.with : start 날짜를 기준으로 일부 값을 변경한 새로운 LocalDate 반환, TemporalAdjusters.lastDayOfMonth() : 그 달의 마지막 날로 변경
+        LocalDate end = start.with(TemporalAdjusters.lastDayOfMonth());
+
+        //다이어리 조회 : SQL 실행 결과 -> Diary 엔티티로 매핑 -> List 형태로 변환 -> diaries 변수에 저장
+        List<Diary> diaries = diaryRepository.findMonthlyDiaries(memberId, start, end);
+
+        if(diaries.isEmpty()){
+            return DiaryMonthlyResponseDto.builder()
+                    .diaryList(Collections.emptyList())
+                    .build();
+        }
+
+        //타입별 diaryId 모으기
+        List<Long> dailyIds = new ArrayList<>();
+        List<Long> bookIds = new ArrayList<>();
+        List<Long> movieIds = new ArrayList<>();
+        for (Diary d : diaries) {
+            switch (d.getType()) {
+                case DAILY -> dailyIds.add(d.getId());
+                case BOOK  -> bookIds.add(d.getId());
+                case MOVIE -> movieIds.add(d.getId());
+            }
+        }
+
+        //배치 조회하여 title 맵 구성 (diaryId -> title)
+        Map<Long, String> titleByDiaryId = new HashMap<>();
+
+        if(!dailyIds.isEmpty()){
+            dailyRepository.findByDiary_IdIn(dailyIds).forEach(d ->
+                    titleByDiaryId.put(d.getDiary().getId(), d.getTitle()));
+        }
+        if(!bookIds.isEmpty()){
+            bookRepository.findByDiary_IdIn(bookIds).forEach(d ->
+                    titleByDiaryId.put(d.getDiary().getId(), d.getTitle()));
+        }
+
+        if(!movieIds.isEmpty()){
+            movieRepository.findByDiary_IdIn(movieIds).forEach(d ->
+                    titleByDiaryId.put(d.getDiary().getId(), d.getTitle()));
+        }
+
+        //Dto 매핑
+        List<DiaryMonthlyItemDto> items = diaries.stream()
+                .map( d -> DiaryMonthlyItemDto.builder()
+                        .id(d.getId())
+                        .diaryDate(d.getDiaryDate())
+                        .type(d.getType().name())
+                        .imageUrl(d.getImageUrl())
+                        .title(titleByDiaryId.getOrDefault(d.getId(), "")) // getOrDefault는 키에 해당하는 값이 있으면 그 값을 반환하고, 없으면 기본값을 반환
+                        .build())
+                .collect(Collectors.toList());
+
+        return DiaryMonthlyResponseDto.builder()
+                .diaryList(items)
+                .build();
     }
 }
