@@ -254,25 +254,9 @@ public class AuthController {
     @PostMapping("/signup")
     public ResponseEntity<SignupResponseDto> signup(@Valid @RequestBody SignupRequestDto signupRequest) {
         log.info("General signup API called: {}", signupRequest.getEmail());
-        
-        try {
-            SignupResponseDto response = memberService.signup(signupRequest);
-            log.info("General signup success: memberId={}", response.getMemberId());
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-            
-        } catch (IllegalArgumentException e) {
-            log.warn("General signup failed: {}", e.getMessage());
-            
-            // Error response
-            SignupResponseDto errorResponse = SignupResponseDto.builder()
-                    .message(e.getMessage())
-                    .memberId(null)
-                    .email(null)
-                    .name(null)
-                    .build();
-            
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
-        }
+
+        SignupResponseDto response = memberService.signup(signupRequest);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
     
     /**

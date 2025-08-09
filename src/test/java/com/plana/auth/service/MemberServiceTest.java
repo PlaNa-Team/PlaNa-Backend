@@ -98,9 +98,9 @@ class MemberServiceTest {
         // Then - 결과 검증
         assertThat(result).isNotNull();
         assertThat(result.getMessage()).isEqualTo("회원가입이 완료되었습니다");
-        assertThat(result.getMemberId()).isEqualTo(1L);
-        assertThat(result.getEmail()).isEqualTo("test@example.com");
-        assertThat(result.getName()).isEqualTo("테스터");
+        assertThat(result.getData().getId()).isEqualTo(1L);
+        assertThat(result.getData().getEmail()).isEqualTo("test@example.com");
+        assertThat(result.getData().getName()).isEqualTo("테스터");
         
         // Mock 호출 검증
         verify(memberRepository).existsByEmail("test@example.com");

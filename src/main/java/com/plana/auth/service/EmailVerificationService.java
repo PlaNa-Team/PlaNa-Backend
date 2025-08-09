@@ -81,4 +81,9 @@ public class EmailVerificationService {
         redis.opsForValue().set(verifiedKey(email), "true", Duration.ofMinutes(30)); // 30분동안 해당 이메일 인증 확인 했다는 표시를 가짐
         return VerifyResult.OK;
     }
+
+    public boolean isVerified(String email) {
+        String key = verifiedKey(email.trim().toLowerCase());
+        return Boolean.TRUE.toString().equals(redis.opsForValue().get(key));
+    }
 }

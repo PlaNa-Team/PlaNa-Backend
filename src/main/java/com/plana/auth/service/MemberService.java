@@ -9,6 +9,7 @@ import com.plana.auth.enums.SocialProvider;
 import com.plana.auth.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +26,7 @@ public class MemberService {
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final StringRedisTemplate redis;
 
     /**
      * 일반 회원가입 처리
@@ -34,25 +36,43 @@ public class MemberService {
      */
     @Transactional
     public SignupResponseDto signup(SignupRequestDto signupRequest) {
+        String email = signupRequest.getEmail().trim().toLowerCase();
+
         log.info("일반 회원가입 시도: {}", signupRequest.getEmail());
         
         // 1. 비밀번호 일치 검증
         if (!signupRequest.isPasswordMatch()) {
             throw new IllegalArgumentException("비밀번호가 일치하지 않습니다");
         }
+
+        // 2. 이메일 인증 완료 여부(서버 판정: Redis 플래그 확인)
+        String verifiedKey = "email:verify:ok:" + email;
+        String verified = redis.opsForValue().get(verifiedKey);
+        if (!"true".equals(verified)) {
+            // 400/403/409 등 팀 규칙에 맞게 예외 타입/상태코드 매핑
+            throw new IllegalArgumentException("이메일 인증이 완료되지 않았습니다");
+        }
         
-        // 2. 이메일 중복 검증 (소셜 로그인 포함)
+        // 3. 이메일 중복 재검증 (소셜 로그인 포함)
         if (memberRepository.existsByEmail(signupRequest.getEmail())) {
             throw new IllegalArgumentException("이미 사용중인 이메일입니다");
         }
+
+        // 4. 아이디 중복 재검증
+        if (signupRequest.getLoginId() != null &&
+                memberRepository.existsByLoginId(signupRequest.getLoginId())) {
+            throw new IllegalArgumentException("이미 사용중인 아이디입니다");
+        }
         
-        // 3. 비밀번호 암호화
+        // 5. 비밀번호 암호화
         String encryptedPassword = passwordEncoder.encode(signupRequest.getPassword());
         
-        // 4. Member 엔티티 생성
+        // 6. Member 엔티티 생성
         Member newMember = Member.builder()
                 .email(signupRequest.getEmail())
+                .loginId(signupRequest.getLoginId())
                 .name(signupRequest.getName())
+                .nickname(signupRequest.getNickname())
                 .password(encryptedPassword) // 암호화된 비밀번호
                 .provider(SocialProvider.LOCAL) // 일반 로그인 구분
                 .providerId(null) // 일반 로그인은 providerId 없음
@@ -60,17 +80,25 @@ public class MemberService {
                 .enabled(true) // 계정 활성화
                 .build();
         
-        // 5. 데이터베이스 저장
+        // 7. 데이터베이스 저장
         Member savedMember = memberRepository.save(newMember);
         
         log.info("일반 회원가입 완료: memberId={}, email={}", savedMember.getId(), savedMember.getEmail());
         
-        // 6. 응답 DTO 생성
+        // 8. 응답 dto 반환
         return SignupResponseDto.builder()
-                .message("회원가입이 완료되었습니다")
-                .memberId(savedMember.getId())
-                .email(savedMember.getEmail())
-                .name(savedMember.getName())
+                .status(201)
+                .message("회원가입 성공")
+                .data(SignupResponseDto.DataDto.builder()
+                        .id(savedMember.getId())
+                        .name(savedMember.getName())
+                        .login_id(savedMember.getLoginId())
+                        .email(savedMember.getEmail())
+                        .nickname(savedMember.getNickname())
+                        .provider(savedMember.getProvider().name())
+                        .created_at(savedMember.getCreatedAt())
+                        .updated_at(savedMember.getUpdatedAt())
+                        .build())
                 .build();
     }
 
