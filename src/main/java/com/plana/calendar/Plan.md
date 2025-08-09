@@ -7,7 +7,7 @@ Spring Boot 환경에서 RFC 5545 RRule 기반의 반복 일정 관리 시스템
 
 ### Phase 1: 기반 설정 및 Entity 개선
 1. **RRule 처리 라이브러리 추가**
-   - `lib-recur` 라이브러리를 pom.xml에 추가 (RRULE 전용, 가벼움)
+   - `ical4j` 라이브러리를 pom.xml에 추가 (RRULE 전용, 가벼움)
    - Maven dependency 설정
 
 2. **Entity 시간 필드 개선 (보류)**
@@ -51,7 +51,7 @@ Spring Boot 환경에서 RFC 5545 RRule 기반의 반복 일정 관리 시스템
    - ScheduleAlarm 기반 알림 발생 시간 계산
 
 ## 🔧 주요 기술 스택
-- **RRule 처리**: lib-recur 라이브러리
+- **RRule 처리**: ical4j 라이브러리
 - **시간 관리**: ZonedDateTime (UTC 기준)
 - **반복 일정**: RFC 5545 RRule 형식
 - **알림**: Spring Scheduler + 커스텀 구현
