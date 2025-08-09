@@ -2,6 +2,7 @@ package com.plana.auth.service;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -161,5 +162,14 @@ public class JwtTokenProvider {
     public boolean isTokenExpired(String token) {
         Date expiration = getExpirationDateFromToken(token);
         return expiration.before(new Date());
+    }
+
+    // 순수 JWT 토큰 문자열만 반환
+    public String resolveToken(HttpServletRequest request){
+        String bearerToken = request.getHeader("Authorization");
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")){
+            return bearerToken.substring(7); // "Bearer "을 잘라내고 순수 JWT만 반환
+        }
+        return null;
     }
 }
