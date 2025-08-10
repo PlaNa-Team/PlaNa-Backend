@@ -8,6 +8,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /* 일정 정보를 저장하는 메인 엔티티 */
 @Entity
@@ -83,6 +85,24 @@ public class Schedule {
     @Builder.Default
     @Column(nullable = false)
     private Boolean isDeleted = false;
+    
+    /**
+     * 일정별 알림 목록 (가상 컬렉션)
+     * 
+     * mappedBy: 관계의 주인이 ScheduleAlarm.schedule 필드임을 명시
+     * - 실제 FK는 schedule_alarm 테이블의 schedule_id 컬럼에 존재
+     * - 이 필드는 DB에 새로운 컬럼을 생성하지 않음
+     * 
+     * cascade: 일정 삭제 시 연관된 알림도 모두 삭제
+     * fetch: 지연 로딩 (필요할 때만 조회)
+     * 
+     * 사용 목적:
+     * - Repository에서 LEFT JOIN FETCH로 N+1 문제 방지
+     * - Service에서 schedule.getAlarms()로 편리한 접근
+     */
+    @OneToMany(mappedBy = "schedule", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<ScheduleAlarm> alarms = new ArrayList<>();
     
     @PrePersist
     protected void onCreate() {
