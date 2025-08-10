@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -453,5 +454,85 @@ public class DiaryServiceImpl implements DiaryService {
                 diary.getId(), diary.getDiaryDate(), diary.getType(), diary.getImageUrl(),
                 diary.getCreatedAt(), diary.getUpdatedAt(), contentDto, tagDtos
         );
+    }
+
+    // 태그 수락, 거절
+    @Override
+    public TagStatusUpdateResponseDto updateDiaryTagStatus(Long tagId, Long memberId, String tagStatus){
+        // 태그 조회
+        DiaryTag tag = diaryTagRepository.findById(tagId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "태그를 찾을 수 없습니다."));
+
+        // 본인 태그만 변경 가능
+        if (tag.getMember() == null || !tag.getMember().getId().equals(memberId)){
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인 태그만 변경할 수 있습니다.");
+        }
+        if (tag.getTagStatus() == TagStatus.WRITER){
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "작성자 태그는 변경할 수 없습니다.");
+        }
+
+        // 수락/ 거절 -> enum 매핑
+        TagStatus newStatus;
+
+        try {
+            newStatus = TagStatus.fromDisplayName(tagStatus); //수락/ 거절
+        }catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "허용된 상태는 '수락' 또는 '거절'입니다.");
+        }
+        if (newStatus != TagStatus.ACCEPTED && newStatus != TagStatus.REJECTED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "허용된 상태는 '수락' 또는 '거절'입니다.");
+        }
+
+        // 상태 변경
+        tag.setTagStatus(newStatus);
+        diaryTagRepository.save(tag);
+
+        // 응답용 다이어리 본문/태그 구성
+        Diary diary = tag.getDiary();
+
+        // 타입별 컨텐츠 dto
+        DiaryContentResponseDto contentDto = mapContentToDto(diary);
+
+        // 태그 리스트 DTO
+        List<DiaryTagResponseDto> tagDtos = diaryTagRepository.findByDiary_Id(diary.getId()).stream()
+                .map(t -> {
+                    if (t.getMember() != null) {
+                        Member m = t.getMember();
+                        return DiaryTagResponseDto.builder()
+                                .id(t.getId())
+                                .memberId(m.getId())
+                                .loginId(m.getLoginId())
+                                .memberNickname(m.getNickname())
+                                .tagStatus(t.getTagStatus())
+                                .build();
+                    } else {
+                        return DiaryTagResponseDto.builder()
+                                .id(t.getId())
+                                .tagText(t.getTagText())
+                                .tagStatus(t.getTagStatus())
+                                .build();
+                    }
+                }).toList();
+
+        // 다이어리 상세 dto
+        DiaryDetailResponseDto diaryDto = new DiaryDetailResponseDto(
+                diary.getId(),
+                diary.getDiaryDate(),
+                diary.getType(),
+                diary.getImageUrl(),
+                diary.getCreatedAt(),
+                diary.getUpdatedAt(),
+                contentDto,
+                tagDtos
+
+        );
+
+        // 최종 응답
+        return TagStatusUpdateResponseDto.builder()
+                .id(tag.getId())
+                .tagStatus(newStatus.getDisplayName())
+                .updatedAt(LocalDateTime.now())
+                .diary(diaryDto)
+                .build();
     }
 }

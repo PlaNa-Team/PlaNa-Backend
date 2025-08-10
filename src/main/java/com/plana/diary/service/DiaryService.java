@@ -5,6 +5,7 @@ import com.plana.diary.dto.request.DiaryUpdateRequestDto;
 import com.plana.diary.dto.response.DiaryCreateResponseDto;
 import com.plana.diary.dto.response.DiaryDetailResponseDto;
 import com.plana.diary.dto.response.DiaryMonthlyResponseDto;
+import com.plana.diary.dto.response.TagStatusUpdateResponseDto;
 
 public interface DiaryService {
     // 다이어리 등록
@@ -21,5 +22,7 @@ public interface DiaryService {
 
     // 다이어리 수정
     DiaryDetailResponseDto updateDiary(Long diaryId, Long memberId, DiaryUpdateRequestDto requestDto);
+
+    TagStatusUpdateResponseDto updateDiaryTagStatus(Long tagId, Long memberId, String tagStatus);
 
 }

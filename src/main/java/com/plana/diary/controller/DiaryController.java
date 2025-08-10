@@ -14,7 +14,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api")
@@ -138,7 +141,7 @@ public class DiaryController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        // 2) content가 있을 때만 변환
+        // content가 있을 때만 변환
         if (requestDto.getContent() != null) {
             Object converted = switch (requestDto.getDiaryType()) {
                 case DAILY -> objectMapper.convertValue(requestDto.getContent(), DailyContentRequestDto.class);
@@ -159,5 +162,50 @@ public class DiaryController {
 
         return ResponseEntity.ok(response);
 
+    }
+
+    // 태그 수락/거절
+    @PutMapping("/diary-tags/{id}/status")
+    public ResponseEntity<ApiResponse<TagStatusUpdateResponseDto>> updateDiaryTagStatus(
+        @PathVariable("id") Long tagId,
+        @AuthenticationPrincipal AuthenticatedMemberDto auth,
+        @RequestBody TagStatusUpdateRequestDto tagStatusUpdateRequestDto
+    ){
+        if (auth == null){
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error(401, "인증이 필요합니다."));
+        }
+
+        if (tagStatusUpdateRequestDto == null ||
+            tagStatusUpdateRequestDto.getTagStatus() == null ||
+            tagStatusUpdateRequestDto.getTagStatus().isBlank()){
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(400, "tagStatus는 필수입니다."));
+        }
+
+        TagStatusUpdateResponseDto data = diaryService.updateDiaryTagStatus(tagId, auth.getId(), tagStatusUpdateRequestDto.getTagStatus());
+
+        // 메시지 닉네임 치환
+
+        String nick = Optional.ofNullable(data.getDiary())
+                .map(DiaryDetailResponseDto::getDiaryTags)
+                .orElse(Collections.emptyList()).stream()
+                .filter(t -> t.getMemberId() != null && Objects.equals(t.getMemberId(), auth.getId()))
+                .map(t -> Optional.ofNullable(t.getMemberNickname()).orElse(
+                        Optional.ofNullable(t.getLoginId()).orElse("사용자")
+                ))
+                .findFirst()
+                .orElse("사용자");
+
+        String message = "수락".equals(data.getTagStatus())
+                ? String.format("내 다이어리에도 {%s}이 추가한 정보가 등록되었습니다.", nick)
+                : "공유를 거절했습니다.";
+
+        ApiResponse<TagStatusUpdateResponseDto> res = ApiResponse.<TagStatusUpdateResponseDto>builder()
+                .status(200)
+                .message(message)
+                .body(new ApiResponse.Body<>(data))
+                .build();
+
+        return ResponseEntity.ok(res);
     }
 }
