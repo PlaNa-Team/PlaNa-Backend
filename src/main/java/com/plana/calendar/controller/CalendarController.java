@@ -116,13 +116,15 @@ public class CalendarController {
             @AuthenticationPrincipal AuthenticatedMemberDto authMember) {
         
         log.info("POST /api/calendars - 일정 생성: {}, memberId: {}", createDto.getTitle(), authMember != null ? authMember.getId() : "null");
+        System.out.println("POST /api/calendars - 일정 생성 시도: " + createDto.getTitle() + ", memberId: " + (authMember != null ? authMember.getId() : "null"));
         
         try {
             if (authMember == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(ApiResponse.error(401, "인증이 필요합니다."));
             }
-            
+
+            System.out.println("POST /api/calendars - 일정 생성 성공: ");
             return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.created("일정 생성 성공", null));
                 
