@@ -4,6 +4,7 @@ import com.plana.auth.dto.AuthenticatedMemberDto;
 import com.plana.calendar.dto.request.ScheduleCreateRequestDto;
 import com.plana.calendar.dto.request.ScheduleUpdateRequestDto;
 import com.plana.calendar.dto.response.ApiResponse;
+import com.plana.calendar.dto.response.ScheduleMonthlyItemDto;
 import com.plana.calendar.dto.response.ScheduleMonthlyResponseDto;
 import com.plana.calendar.dto.response.ScheduleDetailResponseDto;
 import com.plana.calendar.service.CalendarService;
@@ -15,6 +16,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 캘린더 관련 REST API Controller
@@ -56,13 +58,17 @@ public class CalendarController {
                     .body(ApiResponse.error(401, "인증이 필요합니다."));
             }
             
-            // 임시 응답 (null 데이터)
+            // CalendarService를 통해 월별 일정 조회, monthly items 를 가져옴
+            List<ScheduleMonthlyItemDto> schedules = calendarService.getMonthlySchedules(authMember.getId(), year, month);
+
+            // monthly items 를 year, month 와 함께 담아줌. ( 기존 방식은 schedules 를 그대로 data에 전달해주면 되는거였음, 이렇게 구현하면 캐싱 처리등이 가능 )
             ScheduleMonthlyResponseDto responseData = new ScheduleMonthlyResponseDto(
                     year,
                     month,
-                    new ArrayList<>() // 빈 일정 목록
+                    schedules
             );
             
+            System.out.println("GET /api/calendars - 월별 일정 조회 성공: " + schedules.size() + "개 일정");
             return ResponseEntity.ok(
                 ApiResponse.success("월별 일정 조회 성공", responseData)
             );
@@ -93,8 +99,12 @@ public class CalendarController {
                     .body(ApiResponse.error(401, "인증이 필요합니다."));
             }
             
+            // CalendarService를 통해 일정 상세 조회
+            ScheduleDetailResponseDto schedule = calendarService.getScheduleDetail(id, authMember.getId());
+            
+            System.out.println("GET /api/calendars/" + id + " - 일정 상세 조회 성공: " + schedule.getTitle());
             return ResponseEntity.ok(
-                ApiResponse.success("일정 상세 조회 성공", null)
+                ApiResponse.success("일정 상세 조회 성공", schedule)
             );
             
         } catch (Exception e) {
@@ -159,8 +169,12 @@ public class CalendarController {
                     .body(ApiResponse.error(401, "인증이 필요합니다."));
             }
             
+            // CalendarService를 통해 일정 수정
+            ScheduleDetailResponseDto updatedSchedule = calendarService.updateSchedule(id, updateDto, authMember.getId());
+            
+            System.out.println("PATCH /api/calendars/" + id + " - 일정 수정 성공: " + updatedSchedule.getTitle());
             return ResponseEntity.ok(
-                ApiResponse.success("일정 수정 성공", null)
+                ApiResponse.success("일정 수정 성공", updatedSchedule)
             );
             
         } catch (Exception e) {
@@ -189,6 +203,10 @@ public class CalendarController {
                     .body(ApiResponse.error(401, "인증이 필요합니다."));
             }
             
+            // CalendarService를 통해 일정 삭제
+            calendarService.deleteSchedule(id, authMember.getId());
+            
+            System.out.println("DELETE /api/calendars/" + id + " - 일정 삭제 성공");
             return ResponseEntity.ok(
                 ApiResponse.success("일정 삭제 성공", null)
             );
