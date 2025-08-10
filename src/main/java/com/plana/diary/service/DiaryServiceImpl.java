@@ -377,11 +377,81 @@ public class DiaryServiceImpl implements DiaryService {
         if(requestDto.getContent() != null){
             switch (diary.getType()){
                 case DAILY -> {
+                    Daily daily = dailyRepository.findByDiary_Id(diaryId)
+                            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Daily 내용을 찾을 수 없습니다."));
 
+                    // requestDto 안에 있는 content 필드를 타입별 DTO로 변환
+                    DailyContentRequestDto dto = (DailyContentRequestDto) requestDto.getContent();
+                    if (dto.getTitle() != null) daily.setTitle(dto.getTitle());
+                    if(dto.getLocation() != null) daily.setLocation(dto.getLocation());
+                    if(dto.getMemo() != null) daily.setMemo(dto.getMemo());
+                }
+                case BOOK -> {
+                    Book book = bookRepository.findByDiary_Id(diaryId)
+                            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Book 내용을 찾을 수 없습니다."));
+
+                    BookContentRequestDto dto = (BookContentRequestDto) requestDto.getContent();
+                    if (dto.getTitle() != null) book.setTitle(dto.getTitle());
+                    if (dto.getAuthor() != null) book.setAuthor(dto.getAuthor());
+                    if (dto.getGenre() != null) book.setGenre(dto.getGenre());
+                    if (dto.getRating() != null) book.setRating(dto.getRating());
+                    if (dto.getComment() != null) book.setComment(dto.getComment());
+                    if (dto.getPublisher() != null) book.setPublisher(dto.getPublisher());
+
+                    // 날짜 부분 수정
+                    LocalDate newStart = dto.getStartDate() != null? dto.getStartDate() :book.getStartDate();
+                    LocalDate newEnd = dto.getEndDate() != null? dto.getEndDate() : book.getEndDate();
+                    if (newStart != null && newEnd != null && newStart.isAfter(newEnd)){
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "책 시작일이 종료일보다 늦을 수 없습니다.");
+                    }
+                    if (dto.getStartDate() != null) book.setStartDate(dto.getStartDate());
+                    if (dto.getEndDate() != null) book.setEndDate(dto.getEndDate());
+                }
+                case MOVIE -> {
+                    Movie movie = movieRepository.findByDiary_Id(diaryId)
+                            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Movie 내용을 찾을 수 없습니다."));
+                    MovieContentRequestDto dto = (MovieContentRequestDto) requestDto.getContent();
+                    if (dto.getTitle() != null) movie.setTitle(dto.getTitle());
+                    if (dto.getDirector() != null) movie.setDirector(dto.getDirector());
+                    if (dto.getActors() != null) movie.setActors(dto.getActors());
+                    if (dto.getGenre() != null) movie.setGenre(dto.getGenre());
+                    if (dto.getRating() != null) movie.setRating(dto.getRating());
+                    if (dto.getComment() != null) movie.setComment(dto.getComment());
+                    movie.setRewatched(dto.isRewatch());
+                }
+            }
+        }
+        // 태그 교체 (null이면 변경없음, 빈배열이면 전부삭제)
+        if(requestDto.getDiaryTags() != null){
+            List<DiaryTag> existing = diaryTagRepository.findByDiary_Id(diaryId);
+            if (!existing.isEmpty()) diaryTagRepository.deleteAll(existing);
+
+            for (DiaryTagRequestDto tagDto : requestDto.getDiaryTags()){
+                if (tagDto.getMemberId() != null){
+                    Member tagged = memberRepository.findById(tagDto.getMemberId())
+                            .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "태그 대상자 정보가 없습니다."));
+                    TagStatus status = diary.getWriter().getId().equals(tagged.getId()) ? TagStatus.WRITER : TagStatus.PENDING;
+                    diaryTagRepository.save(DiaryTag.builder().diary(diary).member(tagged).tagStatus(status).build());
+                }else if (tagDto.getTagText() != null && !tagDto.getTagText().isBlank()) {
+                    diaryTagRepository.save(DiaryTag.builder().diary(diary).tagText(tagDto.getTagText()).tagStatus(TagStatus.PENDING).build());
                 }
             }
         }
 
-    }
+        // 응답 재구성
+        DiaryContentResponseDto contentDto = mapContentToDto(diary);
+        List<DiaryTagResponseDto> tagDtos = diaryTagRepository.findByDiary_Id(diaryId).stream()
+                .map(tag -> tag.getMember()!=null
+                ? DiaryTagResponseDto.builder().id(tag.getId()).memberId(tag.getMember().getId())
+                                .loginId(tag.getMember().getLoginId()).memberNickname(tag.getMember().getNickname())
+                                .tagStatus(tag.getTagStatus()).build()
+                        : DiaryTagResponseDto.builder().id(tag.getId()).tagText(tag.getTagText())
+                                .tagStatus(tag.getTagStatus()).build())
+                .toList();
 
+        return new DiaryDetailResponseDto(
+                diary.getId(), diary.getDiaryDate(), diary.getType(), diary.getImageUrl(),
+                diary.getCreatedAt(), diary.getUpdatedAt(), contentDto, tagDtos
+        );
+    }
 }
