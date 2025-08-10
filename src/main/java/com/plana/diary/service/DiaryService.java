@@ -1,9 +1,11 @@
 package com.plana.diary.service;
 
 import com.plana.diary.dto.request.DiaryCreateRequestDto;
+import com.plana.diary.dto.request.DiaryUpdateRequestDto;
 import com.plana.diary.dto.response.DiaryCreateResponseDto;
 import com.plana.diary.dto.response.DiaryDetailResponseDto;
 import com.plana.diary.dto.response.DiaryMonthlyResponseDto;
+import com.plana.diary.dto.response.TagStatusUpdateResponseDto;
 
 public interface DiaryService {
     // 다이어리 등록
@@ -14,5 +16,13 @@ public interface DiaryService {
 
     // 월간 다이어리 조회
     DiaryMonthlyResponseDto getMonthlyDiaries(Long memberId, int year, int month);
+
+    // 다이어리 삭제
+    void deleteDiary(Long diaryId, Long memberId);
+
+    // 다이어리 수정
+    DiaryDetailResponseDto updateDiary(Long diaryId, Long memberId, DiaryUpdateRequestDto requestDto);
+
+    TagStatusUpdateResponseDto updateDiaryTagStatus(Long tagId, Long memberId, String tagStatus);
 
 }
