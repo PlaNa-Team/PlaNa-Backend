@@ -118,6 +118,13 @@
 			<artifactId>mariadb-java-client</artifactId>
 			<scope>runtime</scope>
 		</dependency>
+
+		<!-- iCal4j - RFC 5545 iCalendar 표준 지원 라이브러리 (검증된 라이브러리) -->
+		<dependency>
+			<groupId>org.mnode.ical4j</groupId>
+			<artifactId>ical4j</artifactId>
+			<version>4.1.1</version>
+		</dependency>
 	</dependencies>
 
 	<build>
