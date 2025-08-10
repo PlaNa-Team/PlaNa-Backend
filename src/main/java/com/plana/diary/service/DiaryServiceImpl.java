@@ -351,4 +351,7 @@ public class DiaryServiceImpl implements DiaryService {
         // 본문 삭제
         diaryRepository.delete(diary);
     }
+
+    // 다이어리 수정
+
 }
