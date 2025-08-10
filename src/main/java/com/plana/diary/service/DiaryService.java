@@ -1,6 +1,7 @@
 package com.plana.diary.service;
 
 import com.plana.diary.dto.request.DiaryCreateRequestDto;
+import com.plana.diary.dto.request.DiaryUpdateRequestDto;
 import com.plana.diary.dto.response.DiaryCreateResponseDto;
 import com.plana.diary.dto.response.DiaryDetailResponseDto;
 import com.plana.diary.dto.response.DiaryMonthlyResponseDto;
@@ -17,5 +18,8 @@ public interface DiaryService {
 
     // 다이어리 삭제
     void deleteDiary(Long diaryId, Long memberId);
+
+    // 다이어리 수정
+    DiaryDetailResponseDto updateDiary(Long diaryId, Long memberId, DiaryUpdateRequestDto requestDto);
 
 }

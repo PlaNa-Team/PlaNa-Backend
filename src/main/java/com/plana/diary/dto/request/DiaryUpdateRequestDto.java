@@ -1,5 +1,6 @@
 package com.plana.diary.dto.request;
 
+import com.plana.diary.enums.DiaryType;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
@@ -13,13 +14,13 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class DiaryUpdateRequestDto {
-    @NotNull private LocalDate diaryDate;
+    private LocalDate diaryDate;
     private String imageUrl;
-
+    private DiaryType diaryType;
     // 타입별 본문
-    @NotNull private Object content;
+    private Object content;
 
     //태그 전체 교체
-    @NotNull @Size(min=0)
+    @Size(min=0)
     private List<DiaryTagRequestDto> diaryTags;
 }

@@ -5,6 +5,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -16,4 +18,7 @@ public class BookContentRequestDto {
     private String genre;
     private Integer rating;
     private String comment;
+
+    private LocalDate startDate;
+    private LocalDate endDate;
 }

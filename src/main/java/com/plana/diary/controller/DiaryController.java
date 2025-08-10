@@ -3,14 +3,9 @@ package com.plana.diary.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.plana.auth.dto.AuthenticatedMemberDto;
 import com.plana.auth.service.JwtTokenProvider;
-import com.plana.diary.dto.request.BookContentRequestDto;
-import com.plana.diary.dto.request.DailyContentRequestDto;
-import com.plana.diary.dto.request.DiaryCreateRequestDto;
-import com.plana.diary.dto.request.MovieContentRequestDto;
-import com.plana.diary.dto.response.ApiResponse;
-import com.plana.diary.dto.response.DiaryCreateResponseDto;
-import com.plana.diary.dto.response.DiaryDetailResponseDto;
-import com.plana.diary.dto.response.DiaryMonthlyResponseDto;
+import com.plana.diary.dto.request.*;
+import com.plana.diary.dto.response.*;
+import com.plana.diary.entity.Diary;
 import com.plana.diary.service.DiaryService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -130,5 +125,39 @@ public class DiaryController {
                         Map.of("message", "다이어리가 삭제되었습니다.")
                 )
         );
+    }
+
+    // 다이어리 수정
+    @PutMapping("/diaries/{diaryId}")
+    public ResponseEntity<DiaryUpdateResponse> updateDiary(
+            @PathVariable Long diaryId, //url 경로의 {diaryId} 부분을 매개변수에 매핑
+            @AuthenticationPrincipal AuthenticatedMemberDto authMember, //스프링 시큐리티에서 현재 로그인한 사용자의 정보를 주입해주는 어노테이션
+            @RequestBody DiaryUpdateRequestDto requestDto //클라이언트가 보낸 JSON 데이터를 DTO 필드에 맞게 변환해준다.
+    ) {
+        if (authMember == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // 2) content가 있을 때만 변환
+        if (requestDto.getContent() != null) {
+            Object converted = switch (requestDto.getDiaryType()) {
+                case DAILY -> objectMapper.convertValue(requestDto.getContent(), DailyContentRequestDto.class);
+                case BOOK -> objectMapper.convertValue(requestDto.getContent(), BookContentRequestDto.class);
+                case MOVIE -> objectMapper.convertValue(requestDto.getContent(), MovieContentRequestDto.class);
+            };
+            requestDto.setContent(converted);
+        }
+
+        DiaryDetailResponseDto updated = diaryService.updateDiary(diaryId, authMember.getId(), requestDto);
+
+        DiaryUpdateResponse response = DiaryUpdateResponse.builder()
+                .status(200)
+                .body(DiaryUpdateResponse.Body.builder()
+                        .data(updated)
+                        .build())
+                .build();
+
+        return ResponseEntity.ok(response);
+
     }
 }

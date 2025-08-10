@@ -69,6 +69,8 @@ public class DiaryServiceImpl implements DiaryService {
                         .author(bookDto.getAuthor())
                         .genre(bookDto.getGenre())
                         .publisher(bookDto.getPublisher())
+                        .startDate(bookDto.getStartDate())
+                        .endDate(bookDto.getEndDate())
                         .rating(bookDto.getRating())
                         .comment(bookDto.getComment())
                         .build();
@@ -353,5 +355,33 @@ public class DiaryServiceImpl implements DiaryService {
     }
 
     // 다이어리 수정
+    @Override
+    public DiaryDetailResponseDto updateDiary(Long diaryId, Long memberId, DiaryUpdateRequestDto requestDto){
+        Diary diary = diaryRepository.findById(diaryId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "다이어리를 찾을 수 없습니다."));
+
+        if (!diary.getWriter().getId().equals(memberId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "수정 권한이 없습니다.");
+        }
+
+        // 타입 변경 금지
+        if(requestDto.getDiaryType() != null && requestDto.getDiaryType() != diary.getType()){
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "타입은 수정할 수 없습니다.");
+        }
+
+        // 공통 필드 부분 수정
+        if (requestDto.getDiaryDate() != null) diary.setDiaryDate(requestDto.getDiaryDate());
+        if (requestDto.getImageUrl() != null) diary.setImageUrl(requestDto.getImageUrl());
+
+        // content만 현재 타입 기준으로 부분 수정
+        if(requestDto.getContent() != null){
+            switch (diary.getType()){
+                case DAILY -> {
+
+                }
+            }
+        }
+
+    }
 
 }
