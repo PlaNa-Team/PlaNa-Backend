@@ -1,21 +1,23 @@
 package com.plana.diary.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.plana.auth.dto.AuthenticatedMemberDto;
 import com.plana.auth.service.JwtTokenProvider;
-import com.plana.diary.dto.request.BookContentRequestDto;
-import com.plana.diary.dto.request.DailyContentRequestDto;
-import com.plana.diary.dto.request.DiaryCreateRequestDto;
-import com.plana.diary.dto.request.MovieContentRequestDto;
-import com.plana.diary.dto.response.ApiResponse;
-import com.plana.diary.dto.response.DiaryCreateResponseDto;
-import com.plana.diary.dto.response.DiaryDetailResponseDto;
-import com.plana.diary.dto.response.DiaryMonthlyResponseDto;
+import com.plana.diary.dto.request.*;
+import com.plana.diary.dto.response.*;
+import com.plana.diary.entity.Diary;
 import com.plana.diary.service.DiaryService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Collections;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api")
@@ -104,6 +106,105 @@ public class DiaryController {
                         .message(msg)
                         .body(new ApiResponse.Body<>(data))  // data를 body 안에 넣기
                         .build();
+
+        return ResponseEntity.ok(res);
+    }
+
+    //다이어리 삭제
+    @DeleteMapping("/diaries/{diaryId}")
+    public ResponseEntity<ApiResponse<Map<String, String>>> deleteDiary(
+            @AuthenticationPrincipal AuthenticatedMemberDto authMember,
+            @PathVariable Long diaryId){
+        // 로그인 사용자 ID
+        Long memberId = authMember.getId();
+
+        // 서비스 호출
+        diaryService.deleteDiary(diaryId, memberId);
+
+        // 응답생성
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        200,
+                        Map.of("message", "다이어리가 삭제되었습니다.")
+                )
+        );
+    }
+
+    // 다이어리 수정
+    @PutMapping("/diaries/{diaryId}")
+    public ResponseEntity<DiaryUpdateResponse> updateDiary(
+            @PathVariable Long diaryId, //url 경로의 {diaryId} 부분을 매개변수에 매핑
+            @AuthenticationPrincipal AuthenticatedMemberDto authMember, //스프링 시큐리티에서 현재 로그인한 사용자의 정보를 주입해주는 어노테이션
+            @RequestBody DiaryUpdateRequestDto requestDto //클라이언트가 보낸 JSON 데이터를 DTO 필드에 맞게 변환해준다.
+    ) {
+        if (authMember == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // content가 있을 때만 변환
+        if (requestDto.getContent() != null) {
+            Object converted = switch (requestDto.getDiaryType()) {
+                case DAILY -> objectMapper.convertValue(requestDto.getContent(), DailyContentRequestDto.class);
+                case BOOK -> objectMapper.convertValue(requestDto.getContent(), BookContentRequestDto.class);
+                case MOVIE -> objectMapper.convertValue(requestDto.getContent(), MovieContentRequestDto.class);
+            };
+            requestDto.setContent(converted);
+        }
+
+        DiaryDetailResponseDto updated = diaryService.updateDiary(diaryId, authMember.getId(), requestDto);
+
+        DiaryUpdateResponse response = DiaryUpdateResponse.builder()
+                .status(200)
+                .body(DiaryUpdateResponse.Body.builder()
+                        .data(updated)
+                        .build())
+                .build();
+
+        return ResponseEntity.ok(response);
+
+    }
+
+    // 태그 수락/거절
+    @PutMapping("/diary-tags/{id}/status")
+    public ResponseEntity<ApiResponse<TagStatusUpdateResponseDto>> updateDiaryTagStatus(
+        @PathVariable("id") Long tagId,
+        @AuthenticationPrincipal AuthenticatedMemberDto auth,
+        @RequestBody TagStatusUpdateRequestDto tagStatusUpdateRequestDto
+    ){
+        if (auth == null){
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error(401, "인증이 필요합니다."));
+        }
+
+        if (tagStatusUpdateRequestDto == null ||
+            tagStatusUpdateRequestDto.getTagStatus() == null ||
+            tagStatusUpdateRequestDto.getTagStatus().isBlank()){
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(400, "tagStatus는 필수입니다."));
+        }
+
+        TagStatusUpdateResponseDto data = diaryService.updateDiaryTagStatus(tagId, auth.getId(), tagStatusUpdateRequestDto.getTagStatus());
+
+        // 메시지 닉네임 치환
+
+        String nick = Optional.ofNullable(data.getDiary())
+                .map(DiaryDetailResponseDto::getDiaryTags)
+                .orElse(Collections.emptyList()).stream()
+                .filter(t -> t.getMemberId() != null && Objects.equals(t.getMemberId(), auth.getId()))
+                .map(t -> Optional.ofNullable(t.getMemberNickname()).orElse(
+                        Optional.ofNullable(t.getLoginId()).orElse("사용자")
+                ))
+                .findFirst()
+                .orElse("사용자");
+
+        String message = "수락".equals(data.getTagStatus())
+                ? String.format("내 다이어리에도 {%s}이 추가한 정보가 등록되었습니다.", nick)
+                : "공유를 거절했습니다.";
+
+        ApiResponse<TagStatusUpdateResponseDto> res = ApiResponse.<TagStatusUpdateResponseDto>builder()
+                .status(200)
+                .message(message)
+                .body(new ApiResponse.Body<>(data))
+                .build();
 
         return ResponseEntity.ok(res);
     }
