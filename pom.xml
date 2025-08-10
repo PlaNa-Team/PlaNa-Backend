@@ -126,6 +126,13 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-mail</artifactId>
 		</dependency>
+
+		<!-- iCal4j - RFC 5545 iCalendar 표준 지원 라이브러리 (검증된 라이브러리) -->
+		<dependency>
+			<groupId>org.mnode.ical4j</groupId>
+			<artifactId>ical4j</artifactId>
+			<version>4.1.1</version>
+		</dependency>
 	</dependencies>
 
 	<build>
@@ -139,7 +146,7 @@
 							<groupId>org.projectlombok</groupId>
 							<artifactId>lombok</artifactId>
 							<version>1.18.30</version> <!-- 최신 안정 버전 명시 -->
-							<scope>provided</scope>    <!-- optional 대신 scope 사용 -->
+							<scope>provided</scope>    <!-- &lt;!&ndash; optional 대신 scope 사용 &ndash;&gt;-->
 						</path>
 					</annotationProcessorPaths>
 				</configuration>
@@ -147,14 +154,6 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
-<!--				<configuration>-->
-<!--					<excludes>-->
-<!--						<exclude>-->
-<!--							<groupId>org.projectlombok</groupId>-->
-<!--							<artifactId>lombok</artifactId>-->
-<!--						</exclude>-->
-<!--					</excludes>-->
-<!--				</configuration>-->
 			</plugin>
 		</plugins>
 	</build>

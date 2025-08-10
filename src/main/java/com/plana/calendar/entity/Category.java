@@ -1,5 +1,6 @@
 package com.plana.calendar.entity;
 
+import com.plana.auth.entity.Member;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -27,6 +28,11 @@ public class Category {
     // 카테고리 색상 코드
     @Column(nullable = false, length = 50)
     private String color;
+    
+    // 카테고리 소유자
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "member_id", nullable = false)
+    private Member member;
     
     // 카테고리 삭제 여부 (FALSE(기본값))
     @Builder.Default
