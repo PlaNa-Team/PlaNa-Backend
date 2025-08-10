@@ -153,6 +153,46 @@ Spring Boot 환경에서 RFC 5545 RRule 기반의 반복 일정 관리 시스템
 - ✅ **LocalDateTime** 직접 사용으로 변환 로직 단순화
 - ✅ **RFC 5545 RRule** 표준 완전 준수
 
+### **🎯 핵심 설계 결정: 반복 일정 처리 방식**
+
+#### **반복 일정 ID 체계 - virtualId 도입**
+
+**배경:**
+- 반복 일정은 DB에 마스터 이벤트 1개만 저장하고 인스턴스는 동적 계산
+- 프론트엔드에서 개별 인스턴스 클릭/수정 시 마스터 이벤트 식별 필요
+- 기존 `originalScheduleId` 방식 대신 더 유연한 `virtualId` 방식 채택
+
+**virtualId 규칙:**
+```java
+// 일반 일정: null
+// 반복 인스턴스: "recurring-{scheduleId}-{timestamp}"
+// 예시: "recurring-123-1707134400"
+```
+
+**장점:**
+1. **프론트엔드 편의성**
+   - 파싱하여 마스터 이벤트 ID와 발생 시점 둘 다 추출 가능
+   - 개별 인스턴스 고유 식별자로 활용
+   
+2. **확장성**
+   - 향후 개별 인스턴스 예외 처리 시 timestamp로 정확한 식별
+   - 드래그&드롭, 개별 삭제 등 고급 기능 지원 가능
+
+3. **백엔드 단순성**
+   - Repository는 마스터 이벤트만 조회
+   - virtualId는 Service 계층에서 동적 생성
+
+**Repository 수정사항:**
+```java
+// ScheduleRepository - originalScheduleId 제거, virtualId는 Service에서 처리
+"s.id, s.title, s.startAt, s.endAt, s.isAllDay, s.color, " +
+"s.isRecurring, c.name, null) "  // null = virtualId는 Service에서 생성
+```
+
+**DTO 수정사항:**
+- `ScheduleMonthlyItemDto.originalScheduleId` → `virtualId`로 변경
+- 타입: `Long` → `String`
+
 ## 🚀 진행 현황
 - [x] Entity 설계 및 구현 완료
 - [x] 개발 계획 수립 및 추가 제안사항 정리

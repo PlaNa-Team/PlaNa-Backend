@@ -33,8 +33,20 @@ public class ScheduleMonthlyItemDto {
     private Boolean isRecurring;
     private String categoryName;
     
-    // 반복 일정인 경우, 원본 일정 ID (반복 인스턴스와 구분용)
-    // 반복 일정을 원본데이터를 복사해서 db에 만들어둔다면 필요가 없음.. 그렇게 할거였다면 반복 여부를 db에 저장해둘 필요없이 처음 생성할때, 반복문으로 데이터를 생성해서 저장해두면 됐던거임.
-    // 반복 일정을 그때 그때 계산해서 만들거라면, 일정 고유번호가 왜 있는건지 생각해봐야함. 그때 그때 만든 일정에도 오리지널스케줄을 연결해둘거라면, erd(entity)에 필드가 추가되어야함.
-    private Long originalScheduleId;
+    /**
+     * 가상 ID (Virtual ID)
+     * 
+     * 일반 일정: null
+     * 반복 인스턴스: "recurring-{scheduleId}-{timestamp}"
+     * 
+     * 사용 목적:
+     * - 프론트엔드에서 개별 반복 인스턴스 식별 및 수정
+     * - 마스터 이벤트 ID와 발생 시점을 동시에 전달
+     * - 향후 개별 인스턴스 예외 처리 지원 (예외 처리를 저장해둘 db 컬럼이 추가로 필요할 수 있음)
+     * 
+     * 예시:
+     * - 일반 일정: virtualId = null
+     * - 반복 인스턴스: virtualId = "recurring-123-1707134400"
+     */
+    private String virtualId;
 }
