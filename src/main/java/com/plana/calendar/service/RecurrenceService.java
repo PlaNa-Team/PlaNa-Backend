@@ -1,7 +1,5 @@
 package com.plana.calendar.service;
 
-import com.plana.calendar.entity.Schedule;
-
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -13,63 +11,44 @@ public interface RecurrenceService {
     
     /**
      * 특정 월의 반복 일정 인스턴스들을 생성
+     * 
+     * @param rrule RRule 문자열 (예: "FREQ=WEEKLY;BYDAY=TU")
+     * @param scheduleStartAt 원본 일정 시작 시간
+     * @param year 조회할 연도
+     * @param month 조회할 월 (1-12)
+     * @return 해당 월에 포함되는 반복 인스턴스의 시작 시간들
      */
-    List<RecurrenceInstance> generateMonthlyInstances(Schedule schedule, int year, int month);
+    List<LocalDateTime> generateMonthlyInstances(String rrule, LocalDateTime scheduleStartAt, int year, int month);
     
     /**
      * 주어진 기간 내의 반복 일정 인스턴스들을 생성
+     * 
+     * @param rrule RRule 문자열 (예: "FREQ=WEEKLY;BYDAY=TU")
+     * @param scheduleStartAt 원본 일정 시작 시간
+     * @param rangeStart 조회 범위 시작
+     * @param rangeEnd 조회 범위 종료
+     * @return 해당 범위에 포함되는 반복 인스턴스의 시작 시간들
      */
-    List<RecurrenceInstance> generateInstancesInRange(Schedule schedule, 
-                                                     LocalDateTime rangeStart, 
-                                                     LocalDateTime rangeEnd);
+    List<LocalDateTime> generateInstancesInRange(String rrule, 
+                                               LocalDateTime scheduleStartAt,
+                                               LocalDateTime rangeStart, 
+                                               LocalDateTime rangeEnd);
     
     /**
      * RRule 문자열의 유효성 검증
+     * 
+     * @param rrule 검증할 RRule 문자열
+     * @return 유효한 경우 true
      */
     boolean validateRRule(String rrule);
     
     /**
      * 반복 일정의 다음 발생 시간 계산
+     * 
+     * @param rrule RRule 문자열
+     * @param scheduleStartAt 원본 일정 시작 시간
+     * @param fromDateTime 기준 시간 (이후 첫 번째 발생 시간 조회)
+     * @return 다음 발생 시간 (없으면 null)
      */
-    LocalDateTime getNextOccurrence(Schedule schedule, LocalDateTime fromDateTime);
-    
-    /**
-     * 반복 일정 인스턴스 정보
-     */
-    class RecurrenceInstance {
-        private final Long originalScheduleId;
-        private final String title;
-        private final String description;
-        private final String color;
-        private final LocalDateTime startAt;
-        private final LocalDateTime endAt;
-        private final Boolean isAllDay;
-        private final String categoryName;
-        private final String categoryColor;
-        
-        public RecurrenceInstance(Long originalScheduleId, String title, String description, 
-                                String color, LocalDateTime startAt, LocalDateTime endAt, 
-                                Boolean isAllDay, String categoryName, String categoryColor) {
-            this.originalScheduleId = originalScheduleId;
-            this.title = title;
-            this.description = description;
-            this.color = color;
-            this.startAt = startAt;
-            this.endAt = endAt;
-            this.isAllDay = isAllDay;
-            this.categoryName = categoryName;
-            this.categoryColor = categoryColor;
-        }
-        
-        // Getters
-        public Long getOriginalScheduleId() { return originalScheduleId; }
-        public String getTitle() { return title; }
-        public String getDescription() { return description; }
-        public String getColor() { return color; }
-        public LocalDateTime getStartAt() { return startAt; }
-        public LocalDateTime getEndAt() { return endAt; }
-        public Boolean getIsAllDay() { return isAllDay; }
-        public String getCategoryName() { return categoryName; }
-        public String getCategoryColor() { return categoryColor; }
-    }
+    LocalDateTime getNextOccurrence(String rrule, LocalDateTime scheduleStartAt, LocalDateTime fromDateTime);
 }

@@ -1,12 +1,11 @@
 package com.plana.calendar.service;
 
-import com.plana.calendar.entity.Schedule;
 import com.plana.calendar.utils.RRuleUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -17,105 +16,73 @@ import java.util.List;
 @Slf4j
 @Service
 public class RecurrenceServiceImpl implements RecurrenceService {
-    
+
+    // 특정 월의 반복 일정 인스턴스들을 생성 (interface 참고)
     @Override
-    public List<RecurrenceInstance> generateMonthlyInstances(Schedule schedule, int year, int month) {
-        if (!schedule.getIsRecurring() || schedule.getRecurrenceRule() == null) {
+    public List<LocalDateTime> generateMonthlyInstances(String rrule, LocalDateTime scheduleStartAt, int year, int month) {
+        if (rrule == null || rrule.trim().isEmpty()) {
             return new ArrayList<>();
         }
         
-        List<LocalDateTime> instances = RRuleUtils.generateMonthlyInstances(
-            schedule.getRecurrenceRule(),
-            schedule.getStartAt(),
-            year,
-            month
-        );
-        
-        return convertToRecurrenceInstances(schedule, instances);
+        // 월의 첫날과 마지막날 계산
+        YearMonth yearMonth = YearMonth.of(year, month);
+        LocalDateTime startOfMonth = yearMonth.atDay(1).atStartOfDay();
+        LocalDateTime endOfMonth = yearMonth.atEndOfMonth().atTime(23, 59, 59);
+
+        return generateInstancesInRange(rrule, scheduleStartAt, startOfMonth, endOfMonth);
     }
-    
+
+    // 주어진 기간 내의 반복 일정 인스턴스들을 생성 (interface 참고)
     @Override
-    public List<RecurrenceInstance> generateInstancesInRange(Schedule schedule, 
-                                                           LocalDateTime rangeStart, 
-                                                           LocalDateTime rangeEnd) {
-        if (!schedule.getIsRecurring() || schedule.getRecurrenceRule() == null) {
+    public List<LocalDateTime> generateInstancesInRange(String rrule, 
+                                                       LocalDateTime scheduleStartAt,
+                                                       LocalDateTime rangeStart, 
+                                                       LocalDateTime rangeEnd) {
+        if (rrule == null || rrule.trim().isEmpty()) {
             return new ArrayList<>();
         }
         
         List<LocalDateTime> instances = RRuleUtils.generateRecurrenceInstances(
-            schedule.getRecurrenceRule(),
-            schedule.getStartAt(),
+            rrule,
+            scheduleStartAt,
             rangeStart,
             rangeEnd,
-            500
+            100  // 최대 100개 인스턴스
         );
         
-        return convertToRecurrenceInstances(schedule, instances);
+        log.debug("Generated {} recurrence instances for RRule: {}, StartAt: {}, Range: {} to {}", 
+                instances.size(), rrule, scheduleStartAt, rangeStart, rangeEnd);
+        
+        return instances;
     }
-    
+
+    // RRule 문자열의 유효성 검증 (interface 참고)
     @Override
     public boolean validateRRule(String rrule) {
         return RRuleUtils.isValidRRule(rrule);
     }
-    
+
+    // 반복 일정의 다음 발생 시간 계산 (interface 참고)
     @Override
-    public LocalDateTime getNextOccurrence(Schedule schedule, LocalDateTime fromDateTime) {
-        if (!schedule.getIsRecurring() || schedule.getRecurrenceRule() == null) {
+    public LocalDateTime getNextOccurrence(String rrule, LocalDateTime scheduleStartAt, LocalDateTime fromDateTime) {
+        if (rrule == null || rrule.trim().isEmpty()) {
             return null;
         }
         
-        LocalDateTime rangeEnd = fromDateTime.plusYears(1);
+        // 현재 시간부터 1년 뒤까지의 범위에서 다음 발생 시간 찾기
+        LocalDateTime oneYearLater = fromDateTime.plusYears(1);
+        
         List<LocalDateTime> instances = RRuleUtils.generateRecurrenceInstances(
-            schedule.getRecurrenceRule(),
-            schedule.getStartAt(),
+            rrule,
+            scheduleStartAt,
             fromDateTime,
-            rangeEnd,
-            1
+            oneYearLater,
+            1  // 첫 번째 인스턴스만 필요
         );
         
-        return instances.isEmpty() ? null : instances.get(0);
-    }
-    
-    /**
-     * LocalDateTime 인스턴스들을 RecurrenceInstance로 변환
-     */
-    private List<RecurrenceInstance> convertToRecurrenceInstances(Schedule schedule, List<LocalDateTime> instances) {
-        List<RecurrenceInstance> recurrenceInstances = new ArrayList<>();
+        LocalDateTime nextOccurrence = instances.isEmpty() ? null : instances.get(0);
+        log.debug("Next occurrence for RRule: {} from {} is {}", rrule, fromDateTime, nextOccurrence);
         
-        // 원본 일정의 지속 시간 계산
-        Long durationMinutes = null;
-        if (schedule.getEndAt() != null) {
-            durationMinutes = ChronoUnit.MINUTES.between(schedule.getStartAt(), schedule.getEndAt());
-        }
-        
-        for (LocalDateTime instanceStart : instances) {
-            // 반복 종료일 체크
-            if (schedule.getRecurrenceUntil() != null && instanceStart.isAfter(schedule.getRecurrenceUntil())) {
-                break;
-            }
-            
-            // 종료 시간 계산
-            LocalDateTime instanceEnd = null;
-            if (durationMinutes != null) {
-                instanceEnd = instanceStart.plusMinutes(durationMinutes);
-            }
-            
-            RecurrenceInstance instance = new RecurrenceInstance(
-                schedule.getId(),
-                schedule.getTitle(),
-                schedule.getDescription(),
-                schedule.getColor(),
-                instanceStart,
-                instanceEnd,
-                schedule.getIsAllDay(),
-                schedule.getCategory() != null ? schedule.getCategory().getName() : null,
-                schedule.getCategory() != null ? schedule.getCategory().getColor() : null
-            );
-            
-            recurrenceInstances.add(instance);
-        }
-        
-        log.debug("Generated {} recurrence instances for schedule {}", recurrenceInstances.size(), schedule.getId());
-        return recurrenceInstances;
+        return nextOccurrence;
     }
 }

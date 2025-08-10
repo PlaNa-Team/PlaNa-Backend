@@ -12,22 +12,19 @@ import java.util.Optional;
 
 public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
     
-    // 월별 일정 조회 (DTO로 직접 반환)
-    //  1. 타입 명시: null → CAST(null AS string)
-    //    - DTO 생성자의 마지막 파라미터가 String virtualId이므로 명시적 타입 캐스팅 필요
-    @Query("SELECT new com.plana.calendar.dto.response.ScheduleMonthlyItemDto(" +
-            "s.id, s.title, s.startAt, s.endAt, s.isAllDay, s.color, " +
-            "s.isRecurring, c.name, CAST(null AS string)) " +
-            "FROM Schedule s " +
-            "LEFT JOIN s.category c " +
+    // 월별 일반 일정 조회 (Entity 반환 - 반복 일정 제외)
+    @Query("SELECT s FROM Schedule s " +
+            "LEFT JOIN FETCH s.category " +
             "WHERE s.member.id = :memberId " +
+            "AND s.isRecurring = false " +
+            "AND s.isDeleted = false " +
             "AND ((s.startAt BETWEEN :start AND :end) " +
             "OR (s.endAt BETWEEN :start AND :end) " +
             "OR (s.startAt <= :start AND s.endAt >= :end)) " +
             "ORDER BY s.startAt ASC")
-    List<ScheduleMonthlyItemDto> findMonthlySchedules(@Param("memberId") Long memberId,
-                                                    @Param("start") LocalDateTime start,
-                                                    @Param("end") LocalDateTime end);
+    List<Schedule> findNonRecurringSchedulesInRange(@Param("memberId") Long memberId,
+                                                   @Param("start") LocalDateTime start,
+                                                   @Param("end") LocalDateTime end);
     
     // 일정 상세 조회 (Entity 반환 - 연관관계 필요)
     @Query("SELECT s FROM Schedule s " +
@@ -39,8 +36,10 @@ public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
     
     // 반복 일정만 조회 (RRule 처리를 위해)
     @Query("SELECT s FROM Schedule s " +
+            "LEFT JOIN FETCH s.category " +
             "WHERE s.member.id = :memberId " +
             "AND s.isRecurring = true " +
+            "AND s.isDeleted = false " +
             "AND s.startAt <= :rangeEnd " +
             "ORDER BY s.startAt ASC")
     List<Schedule> findRecurringSchedulesForRange(@Param("memberId") Long memberId,
