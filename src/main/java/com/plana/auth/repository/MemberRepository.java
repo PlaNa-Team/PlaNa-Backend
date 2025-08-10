@@ -39,4 +39,7 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
     // 아이디 중복 확인 (회원가입 시 사용)
     boolean existsByLoginId(String loginId);
+
+    @Query(value = "SELECT * FROM member WHERE email = :email", nativeQuery = true)
+    Optional<Member> findByEmailIncludingDeleted(@Param("email") String email);
 }

@@ -141,6 +141,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return true;
         }
 
+        if (path.equals("/api/members") && "POST".equals(method)) {
+            return true; // 회원가입만 스킵
+        }
+
         // JWT 인증이 불필요한 경로들 (SecurityConfig의 permitAll과 일치)
         return path.equals("/") ||                              // 루트
                 path.startsWith("/api/test/") ||                // 테스트 API (기존)
@@ -150,7 +154,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 path.equals("/api/auth/test-jwt") ||            // JWT 테스트 API
 
                 // === 추가된 경로들 ===
-                path.equals("/api/members") ||                  // POST: 회원가입 / 흠 signup 과 같이 endpoint 를 명시적으로 사용하는 것은 어떤지 의견나눠보기!
+                //path.equals("/api/members") ||                  // POST: 회원가입 / 흠 signup 과 같이 endpoint 를 명시적으로 사용하는 것은 어떤지 의견나눠보기!
                 path.equals("/api/members/check-id") ||         // 아이디 중복 확인
                 path.equals("/api/auth/email/verification-code") ||      // 이메일 인증번호 전송
                 path.equals("/api/auth/email/verify") ||        // 이메일 인증번호 확인

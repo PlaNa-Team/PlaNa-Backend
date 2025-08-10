@@ -112,25 +112,30 @@ public class MemberService {
         log.info("일반 로그인 시도: {}", loginRequest.getEmail());
         
         // 1. 이메일로 사용자 조회
-        Member member = memberRepository.findByEmail(loginRequest.getEmail())
+        Member member = memberRepository.findByEmailIncludingDeleted(loginRequest.getEmail())
                 .orElseThrow(() -> new UnauthorizedException("이메일 또는 비밀번호가 올바르지 않습니다"));
+
+        // 2. 탈퇴한 사용자인지 확인
+        if (member.isDeleted()) {
+            throw new ForbiddenException("탈퇴한 계정입니다");
+        }
         
-        // 2. 일반 로그인 사용자인지 확인 (소셜 로그인 사용자는 password가 null)
+        // 3. 일반 로그인 사용자인지 확인 (소셜 로그인 사용자는 password가 null)
         if (member.getProvider() != SocialProvider.LOCAL || member.getPassword() == null) {
             throw new UnauthorizedException("소셜 로그인으로 가입된 계정입니다. 소셜 로그인을 사용해주세요");
         }
         
-        // 3. 계정 활성화 상태 확인
+        // 4. 계정 활성화 상태 확인
         if (!member.getEnabled()) {
             throw new ForbiddenException("비활성화된 계정입니다. 관리자에게 문의하세요");
         }
         
-        // 4. 비밀번호 검증
+        // 5. 비밀번호 검증
         if (!passwordEncoder.matches(loginRequest.getPassword(), member.getPassword())) {
             throw new UnauthorizedException("이메일 또는 비밀번호가 올바르지 않습니다");
         }
         
-        // 5. JWT 토큰 생성 (기존 소셜 로그인과 동일한 방식)
+        // 6. JWT 토큰 생성 (기존 소셜 로그인과 동일한 방식)
         String accessToken = jwtTokenProvider.createAccessToken(
                 member.getId(),
                 member.getEmail(),
@@ -139,7 +144,7 @@ public class MemberService {
         
         log.info("일반 로그인 성공: memberId={}, email={}", member.getId(), member.getEmail());
         
-        // 6. 응답 DTO 생성 (소셜 로그인과 동일한 구조)
+        // 7. 응답 DTO 생성 (소셜 로그인과 동일한 구조)
         MemberInfoDto memberInfo = MemberInfoDto.builder()
                 .id(member.getId())
                 .nickname(member.getNickname())
@@ -196,5 +201,19 @@ public class MemberService {
     @Transactional(readOnly = true)
     public boolean isLoginIdExists(String loginId) {
         return !memberRepository.existsByLoginId(loginId);
+    }
+
+    // 회원 탈퇴
+    @Transactional
+    public void deleteMe(Long memberId) {
+        Member m = memberRepository.findById(memberId)
+                .orElseThrow(() -> new UnauthorizedException("인증이 필요합니다"));
+
+        // 플래그 세팅
+        m.setDeleted(true);
+        m.setEnabled(false);
+
+        // 토큰/세션 정리 (로그인에 redis 적용 시)
+        // revokeTokensFor(m.getId());
     }
 }
