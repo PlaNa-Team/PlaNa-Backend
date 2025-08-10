@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 /**
  * 회원가입 성공 응답 DTO
  */
@@ -13,20 +15,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Builder
 public class SignupResponseDto {
-    
-    // 성공 메시지
-    private String message;
-    
-    // 생성된 사용자 ID
-    private Long memberId;
-    
-    // 생성된 사용자 이메일
-    private String email;
-    
-    // 생성된 사용자 이름
-    private String name;
-    
-    // 응답 시간
+
+    private int status;      // 201
+    private String message;  // "회원가입 성공"
+    private MemberInfoDto data;    // 회원 정보
     @Builder.Default
-    private Long timestamp = System.currentTimeMillis();
+    private Long timestamp = System.currentTimeMillis(); // 응답시간
 }

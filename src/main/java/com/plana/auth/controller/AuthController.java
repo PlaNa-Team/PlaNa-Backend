@@ -3,6 +3,7 @@ package com.plana.auth.controller;
 import com.plana.auth.dto.*;
 import com.plana.auth.entity.Member;
 import com.plana.auth.repository.MemberRepository;
+import com.plana.auth.service.EmailVerificationService;
 import com.plana.auth.service.JwtTokenProvider;
 import com.plana.auth.service.MemberService;
 import jakarta.servlet.http.Cookie;
@@ -39,6 +40,7 @@ public class AuthController {
     private final JwtTokenProvider jwtTokenProvider;
     private final MemberRepository memberRepository;
     private final MemberService memberService;
+    private final EmailVerificationService emailVerificationService;
     
 
     /**
@@ -252,25 +254,9 @@ public class AuthController {
     @PostMapping("/signup")
     public ResponseEntity<SignupResponseDto> signup(@Valid @RequestBody SignupRequestDto signupRequest) {
         log.info("General signup API called: {}", signupRequest.getEmail());
-        
-        try {
-            SignupResponseDto response = memberService.signup(signupRequest);
-            log.info("General signup success: memberId={}", response.getMemberId());
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-            
-        } catch (IllegalArgumentException e) {
-            log.warn("General signup failed: {}", e.getMessage());
-            
-            // Error response
-            SignupResponseDto errorResponse = SignupResponseDto.builder()
-                    .message(e.getMessage())
-                    .memberId(null)
-                    .email(null)
-                    .name(null)
-                    .build();
-            
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
-        }
+
+        SignupResponseDto response = memberService.signup(signupRequest);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
     
     /**
@@ -282,23 +268,9 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<LoginResponseDto> login(@Valid @RequestBody LoginRequestDto loginRequest) {
         log.info("General login API called: {}", loginRequest.getEmail());
-        
-        try {
-            LoginResponseDto response = memberService.login(loginRequest);
-            log.info("General login success: memberId={}", response.getMember().getId());
-            return ResponseEntity.ok(response);
-            
-        } catch (IllegalArgumentException e) {
-            log.warn("General login failed: {}", e.getMessage());
-            
-            // Error response
-            LoginResponseDto errorResponse = LoginResponseDto.builder()
-                    .accessToken(null)
-                    .member(null)
-                    .build();
-            
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-        }
+
+        LoginResponseDto response = memberService.login(loginRequest);
+        return ResponseEntity.ok(response);
     }
     
 
@@ -319,4 +291,26 @@ public class AuthController {
         }
         return null;
     }
+
+    // 이메일 인증번호 발송
+    @PostMapping("/email/verification-code")
+    public ResponseEntity<EmailSendResponseDto> sendVerificationCode(@Valid @RequestBody EmailSendRequestDto request) {
+        String email = request.getEmail().trim().toLowerCase();
+        boolean duplicated = emailVerificationService.sendCodeIfNotDuplicated(email);
+        return duplicated
+                ? ResponseEntity.status(409).body(EmailSendResponseDto.duplicated())
+                : ResponseEntity.ok(EmailSendResponseDto.sent());
+    }
+
+    // 이메일 인증번호 확인
+    @PostMapping("/email/verify")
+    public ResponseEntity<?> verify(@Valid @RequestBody VerifyCodeRequestDto req) {
+        var r = emailVerificationService.verifyCode(req.getEmail(), req.getCode());
+        return switch (r) {
+            case OK -> ResponseEntity.ok(Map.of("status", 200, "verified", true, "message", "이메일 인증이 완료되었습니다."));
+            case MISMATCH -> ResponseEntity.badRequest().body(Map.of("status", 400, "verified", false, "message", "인증번호가 일치하지 않습니다."));
+            case EXPIRED, NOT_FOUND -> ResponseEntity.status(410).body(Map.of("status", 410, "verified", false, "message", "인증번호가 만료되었거나 존재하지 않습니다."));
+        };
+    }
+
 }
