@@ -124,9 +124,12 @@ public class CalendarController {
                     .body(ApiResponse.error(401, "인증이 필요합니다."));
             }
 
-            System.out.println("POST /api/calendars - 일정 생성 성공: ");
+            // CalendarService를 통해 일정 생성
+            ScheduleDetailResponseDto createdSchedule = calendarService.createSchedule(createDto, authMember.getId());
+            
+            System.out.println("POST /api/calendars - 일정 생성 성공: " + createdSchedule.getTitle());
             return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.created("일정 생성 성공", null));
+                .body(ApiResponse.created("일정 생성 성공", createdSchedule));
                 
         } catch (Exception e) {
             log.error("일정 생성 중 오류 발생: {}", e.getMessage(), e);
