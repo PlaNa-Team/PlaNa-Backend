@@ -118,6 +118,14 @@
 			<artifactId>mariadb-java-client</artifactId>
 			<scope>runtime</scope>
 		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-redis</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
 
 		<!-- iCal4j - RFC 5545 iCalendar 표준 지원 라이브러리 (검증된 라이브러리) -->
 		<dependency>

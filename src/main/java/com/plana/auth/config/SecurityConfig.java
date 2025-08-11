@@ -65,6 +65,9 @@ public class SecurityConfig {
                     "/api/auth/test-jwt",     // JWT 테스트 API
 
                     "/api/members",             // POST: 회원가입, GET: 이메일 중복 확인
+                    "/api/members/check-id",    // 아이디 중복 확인
+                    "/api/auth/email/verification-code", // 이메일 인증번호 전송
+                        "/api/auth/email/verify", // 이메일 인증번호 확인
                     "/api/auth/signup",         // 일반 회원가입 API
                     "/api/auth/login",          // 일반 로그인 API
                     "/api/auth/social-login",   // OAuth2 로그인 엔드포인트

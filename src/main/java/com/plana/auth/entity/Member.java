@@ -6,12 +6,15 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.Where;
 
 import java.time.LocalDateTime;
 
 /* 사용자 정보를 저장하는 엔티티, 소셜 로그인과 일반 로그인을 모두 지원 */
 @Entity
 @Table(name = "member")
+@Where(clause = "is_deleted = false") // 기본 조회에서 탈퇴 유저 제외
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
