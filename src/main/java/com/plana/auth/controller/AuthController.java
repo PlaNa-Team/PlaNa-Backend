@@ -46,7 +46,7 @@ public class AuthController {
     /**
      * 현재 로그인한 사용자 정보 조회 (JWT 기반)
      * 실제 프론트엔드에서 사용할 회원정보 API
-     * @param principal Spring Security에서 인증된 사용자 정보
+     //* @param principal Spring Security에서 인증된 사용자 정보
      * @return 사용자 정보 응답
      */
     @GetMapping("/me")

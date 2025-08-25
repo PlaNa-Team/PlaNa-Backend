@@ -86,7 +86,7 @@ public class DiaryServiceImpl implements DiaryService {
                         .director(movieDto.getDirector())
                         .actors(movieDto.getActors())
                         .genre(movieDto.getGenre())
-                        .rewatched(movieDto.isRewatch())
+                        .rewatch(movieDto.isRewatch())
                         .rating(movieDto.getRating())
                         .comment(movieDto.getComment())
                         .build();
@@ -247,7 +247,7 @@ public class DiaryServiceImpl implements DiaryService {
                         .director(movie.getDirector())
                         .actors(movie.getActors())
                         .genre(movie.getGenre())
-                        .rewatch(movie.isRewatched())
+                        .rewatch(movie.isRewatch())
                         .rating(movie.getRating())
                         .comment(movie.getComment())
                         .build();
@@ -418,7 +418,7 @@ public class DiaryServiceImpl implements DiaryService {
                     if (dto.getGenre() != null) movie.setGenre(dto.getGenre());
                     if (dto.getRating() != null) movie.setRating(dto.getRating());
                     if (dto.getComment() != null) movie.setComment(dto.getComment());
-                    movie.setRewatched(dto.isRewatch());
+                    movie.setRewatch(dto.isRewatch());
                 }
             }
         }
