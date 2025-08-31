@@ -112,23 +112,14 @@ public class DiaryController {
 
     //다이어리 삭제
     @DeleteMapping("/diaries/{diaryId}")
-    public ResponseEntity<ApiResponse<Map<String, String>>> deleteDiary(
+    public ResponseEntity<ApiMessageResponse> deleteDiary(
             @AuthenticationPrincipal AuthenticatedMemberDto authMember,
-            @PathVariable Long diaryId){
-        // 로그인 사용자 ID
-        Long memberId = authMember.getId();
+            @PathVariable Long diaryId) {
 
-        // 서비스 호출
-        diaryService.deleteDiary(diaryId, memberId);
-
-        // 응답생성
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        200,
-                        Map.of("message", "다이어리가 삭제되었습니다.")
-                )
-        );
+        diaryService.deleteDiary(diaryId, authMember.getId());
+        return ResponseEntity.ok(ApiMessageResponse.of(200, "다이어리가 삭제되었습니다."));
     }
+
 
     // 다이어리 수정
     @PutMapping("/diaries/{diaryId}")

@@ -30,8 +30,8 @@ public class Movie {
     @Column(length = 50)
     private String genre;
 
-    @Column(nullable = false)
-    private boolean rewatched = false;
+    @Column(name = "rewatch", nullable = false)
+    private boolean rewatch = false;
 
     private Integer rating;
 
