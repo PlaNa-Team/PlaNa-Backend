@@ -75,6 +75,7 @@ public class SecurityConfig {
                     "/api/auth/reset/verify",   // 인증 코드 확인
                     "/api/auth/id-recovery",    // 아이디 찾기
                     "/api/auth/password-reset/verify", // 비밀번호 찾기
+                    "/api/auth/refresh", // 토큰 갱신
 
                     "/error",                 // 에러 페이지
                     "/v3/api-docs/**",        // Swaager가 자동 생성하는 API 명세 JSON 데이터가 위치하는 기본 URL 경로

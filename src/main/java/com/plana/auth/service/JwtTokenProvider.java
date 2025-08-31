@@ -29,8 +29,8 @@ public class JwtTokenProvider {
 
     public JwtTokenProvider(
             @Value("${jwt.secret}") String secretKey,
-            @Value("${jwt.access-token-validity:3600000}") long accessTokenValidityInMilliseconds,
-            @Value("${jwt.refresh-token-validity:604800000}") long refreshTokenValidityInMilliseconds) {
+            @Value("${jwt.access-token-validity}") long accessTokenValidityInMilliseconds,
+            @Value("${jwt.refresh-token-validity}") long refreshTokenValidityInMilliseconds) {
         
         // 비밀키 유효성 검증 (반드시 application.properties에 설정 필요)
         if (secretKey == null || secretKey.trim().isEmpty()) {
@@ -74,8 +74,19 @@ public class JwtTokenProvider {
      * @return JWT 리프레시 토큰
      */
     public String createRefreshToken(Long memberId) {
+        return createRefreshToken(memberId, refreshTokenValidityInMilliseconds);
+    }
+
+    /**
+     * 리프레시 토큰 생성 : rememberMe 등으로 만료 시간을 직접 지정하고 싶을 때
+     * @param memberId 사용자 ID
+     * @param validityMs 만료 시간
+     * @return JWT 리프레시 토큰
+     */
+    public String createRefreshToken(Long memberId, long validityMs) {
         Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + refreshTokenValidityInMilliseconds);
+        Date expiryDate = new Date(now.getTime() + validityMs);
+//        Date expiryDate = new Date(now.getTime() + refreshTokenValidityInMilliseconds);
 
         return Jwts.builder()
                 .setSubject(memberId.toString()) // 토큰 주체 (사용자 ID)
@@ -172,4 +183,36 @@ public class JwtTokenProvider {
         }
         return null;
     }
+
+    /**
+     * 토큰 만료까지 남은 시간을 초 단위로 반환
+     * @param token JWT 토큰
+     * @return 남은 시간(초). 이미 만료된 경우 0 반환
+     */
+    public long getRemainingSeconds(String token) {
+        Date exp = getExpirationDateFromToken(token);
+        long diffMs = exp.getTime() - System.currentTimeMillis();
+        return Math.max(0, diffMs / 1000);
+    }
+
+    /**
+     * 토큰 만료까지 남은 시간을 일 단위로 반환
+     * @param token JWT 토큰
+     * @return 남은 일(day). 이미 만료된 경우 0 반환
+     */
+    public long getRemainingDays(String token) {
+        return getRemainingSeconds(token) / (60 * 60 * 24);
+    }
+
+    /**
+     * 토큰이 특정 기간 이내에 만료되는지 확인
+     * 예: within=Duration.ofDays(3) → 남은 시간이 3일 이하인지 판별
+     * @param token JWT 토큰
+     * @param within 만료 임박 기준 시간 (Duration)
+     * @return true → 임박, false → 아직 여유 있음
+     */
+    public boolean isAboutToExpire(String token, java.time.Duration within) {
+        return getRemainingSeconds(token) <= within.toSeconds();
+    }
+
 }

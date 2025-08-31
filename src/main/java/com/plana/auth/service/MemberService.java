@@ -8,10 +8,13 @@ import com.plana.auth.exception.UnauthorizedException;
 import com.plana.auth.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Duration;
 
 /**
  * 일반 회원가입/로그인 비즈니스 로직 서비스
@@ -26,6 +29,12 @@ public class MemberService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final StringRedisTemplate redis;
+
+    @Value("${jwt.refresh-token-validity}")
+    private long refreshTokenValidityMs;
+
+    @Value("${jwt.refresh-token-validity-remember}")
+    private long refreshTokenValidityRememberMs;
 
     /**
      * 일반 회원가입 처리
@@ -108,7 +117,7 @@ public class MemberService {
      * @throws IllegalArgumentException 로그인 실패 (이메일 없음, 비밀번호 불일치 등)
      */
     @Transactional(readOnly = true)
-    public LoginResponseDto login(LoginRequestDto loginRequest) {
+    public IssuedTokens login(LoginRequestDto loginRequest) {
         log.info("일반 로그인 시도: {}", loginRequest.getEmail());
         
         // 1. 이메일로 사용자 조회
@@ -136,11 +145,14 @@ public class MemberService {
         }
         
         // 6. JWT 토큰 생성 (기존 소셜 로그인과 동일한 방식)
-        String accessToken = jwtTokenProvider.createAccessToken(
-                member.getId(),
-                member.getEmail(),
-                member.getRole()
-        );
+        boolean remember = Boolean.TRUE.equals(loginRequest.getRememberMe());
+        long rtMs = remember ? refreshTokenValidityRememberMs : refreshTokenValidityMs;
+
+        String access = jwtTokenProvider.createAccessToken(member.getId(), member.getEmail(), member.getRole());
+        String refresh = jwtTokenProvider.createRefreshToken(member.getId(), rtMs);
+
+        long accessTtlSec = Math.max(0,
+                (jwtTokenProvider.getExpirationDateFromToken(access).getTime() - System.currentTimeMillis()) / 1000);
         
         log.info("일반 로그인 성공: memberId={}, email={}", member.getId(), member.getEmail());
         
@@ -155,10 +167,12 @@ public class MemberService {
                 .created_at(member.getCreatedAt())
                 .updated_at(member.getUpdatedAt())
                 .build();
-        
-        return LoginResponseDto.builder()
-                .accessToken(accessToken)
-                .expiresIn(3600L) // 1시간
+
+        return IssuedTokens.builder()
+                .accessToken(access)
+                .accessExpiresInSec(accessTtlSec)
+                .refreshToken(refresh)                    // 컨트롤러에서만 사용
+                .refreshMaxAgeSec(rtMs / 1000)
                 .member(memberInfo)
                 .build();
     }

@@ -11,6 +11,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -23,6 +26,7 @@ import org.springframework.http.HttpStatus;
 import jakarta.validation.Valid;
 
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -41,6 +45,18 @@ public class AuthController {
     private final MemberRepository memberRepository;
     private final MemberService memberService;
     private final EmailVerificationService emailVerificationService;
+
+    @Value("${jwt.refresh-token-validity}")
+    private long refreshTokenValidityMs;
+
+    @Value("${jwt.refresh-token-validity-remember}")
+    private long refreshTokenValidityRememberMs;
+
+    @Value("${jwt.refresh-token-validity-short}")   // 예: 60초 (테스트)
+    private long refreshTokenValidityShortMs;
+
+    @Value("${jwt.refresh-token-validity-long}")   // 예: 120초 (테스트)
+    private long refreshTokenValidityLongMs;
     
 
     /**
@@ -117,7 +133,7 @@ public class AuthController {
      * @return 새로운 액세스 토큰
      */
     @PostMapping("/refresh")
-    public ResponseEntity<Map<String, Object>> refreshToken(HttpServletRequest request) {
+    public ResponseEntity<Map<String, Object>> refreshToken(HttpServletRequest request, HttpServletResponse rp) {
         
         // 쿠키에서 리프레시 토큰 추출
         String refreshToken = getCookieValue(request, "refreshToken");
@@ -150,10 +166,35 @@ public class AuthController {
                 member.getRole()
             );
 
+            // Refresh 회전 + 슬라이딩 연장
+            // 임박 기준 : 3일 이내면 true
+            boolean aboutToExpire = jwtTokenProvider.isAboutToExpire(refreshToken, Duration.ofDays(3));
+
+            long remainingSec = jwtTokenProvider.getRemainingSeconds(refreshToken);
+            boolean longLived = remainingSec > (refreshTokenValidityShortMs / 1000); // 짧은 TTL 초과면 장기 취급
+            long nextRtMs = longLived ? refreshTokenValidityLongMs : refreshTokenValidityShortMs;
+
+            String nextRefresh = jwtTokenProvider.createRefreshToken(member.getId(), nextRtMs);
+
+
+            ResponseCookie rtCookie = ResponseCookie.from("refreshToken", nextRefresh)
+                    .httpOnly(true)
+                    .secure(true)
+                    .path("/")
+                    .sameSite("None")
+                    .maxAge(nextRtMs / 1000)
+                    .build();
+            rp.addHeader(HttpHeaders.SET_COOKIE, rtCookie.toString());
+
             Map<String, Object> response = new HashMap<>();
+            long expiresIn = Math.max(0,
+                    (jwtTokenProvider.getExpirationDateFromToken(newAccessToken).getTime() - System.currentTimeMillis()) / 1000);
+
             response.put("accessToken", newAccessToken);
             response.put("message", "Token refreshed successfully");
-            response.put("expiresIn", 3600); // 1시간 (초 단위)
+            response.put("expiresIn", expiresIn);
+            response.put("rotated", true);
+            response.put("slidingExtended", aboutToExpire);
             
             log.info("Token refreshed for member: {}", member.getEmail());
             return ResponseEntity.ok(response);
@@ -266,11 +307,29 @@ public class AuthController {
      * @return 로그인 결과 (JWT 토큰 포함)
      */
     @PostMapping("/login")
-    public ResponseEntity<LoginResponseDto> login(@Valid @RequestBody LoginRequestDto loginRequest) {
+    public ResponseEntity<LoginResponseDto> login(@Valid @RequestBody LoginRequestDto loginRequest, HttpServletResponse httpResponse) {
         log.info("General login API called: {}", loginRequest.getEmail());
 
-        LoginResponseDto response = memberService.login(loginRequest);
-        return ResponseEntity.ok(response);
+        IssuedTokens response = memberService.login(loginRequest);
+
+        // HttpOnly Refresh 쿠키 세팅 (웹 계층 책임)
+        ResponseCookie rtCookie = ResponseCookie.from("refreshToken", response.getRefreshToken())
+                .httpOnly(true)
+                .secure(true)       // 운영은 HTTPS 필수
+                .path("/")
+                .sameSite("None")
+                .maxAge(response.getRefreshMaxAgeSec())
+                .build();
+        httpResponse.addHeader(HttpHeaders.SET_COOKIE, rtCookie.toString());
+
+        // 바디에는 Access만
+        return ResponseEntity.ok(
+                LoginResponseDto.builder()
+                        .accessToken(response.getAccessToken())
+                        .expiresIn(response.getAccessExpiresInSec())
+                        .member(response.getMember())
+                        .build()
+        );
     }
     
 
