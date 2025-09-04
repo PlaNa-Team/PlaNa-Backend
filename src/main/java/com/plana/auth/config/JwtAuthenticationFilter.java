@@ -160,6 +160,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 path.equals("/api/auth/email/verify") ||        // 이메일 인증번호 확인
                 path.equals("/api/auth/signup") ||              // 일반 회원가입 API
                 path.equals("/api/auth/login") ||               // 일반 로그인 API
+                path.equals("/api/auth/refresh") ||             // 리프레시 토큰 API
                 path.equals("/api/auth/social-login") ||        // OAuth2 로그인 엔드포인트
                 path.equals("/api/auth/social-signup") ||       // 소셜 회원가입
                 path.equals("/api/auth/reset/verify") ||        // 인증 코드 확인
