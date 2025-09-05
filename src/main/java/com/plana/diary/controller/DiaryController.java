@@ -8,15 +8,16 @@ import com.plana.diary.dto.response.*;
 import com.plana.diary.entity.Diary;
 import com.plana.diary.service.DiaryService;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api")
@@ -25,7 +26,6 @@ public class DiaryController {
     private final DiaryService diaryService;
     private final JwtTokenProvider jwtTokenProvider;
     private final ObjectMapper objectMapper;
-    private final Validator validator;
 
 
     // 다이어리 저장
@@ -52,16 +52,6 @@ public class DiaryController {
             case MOVIE -> objectMapper.convertValue(requestDto.getContent(), MovieContentRequestDto.class);
             case BOOK -> objectMapper.convertValue(requestDto.getContent(), BookContentRequestDto.class);
         };
-
-        //  convertedContent 객체에 대해 Bean Validation 검사 실행
-        Set<ConstraintViolation<Object>> violations = validator.validate(convertedContent);
-        if (!violations.isEmpty()) {
-            String errorMessage = violations.iterator().next().getMessage();
-            return ResponseEntity.badRequest()
-                    .body(ApiResponse.error(HttpStatus.BAD_REQUEST.value(), errorMessage));
-        }
-
-
         requestDto.setContent(convertedContent);
 
         // 3. 서비스 호출
