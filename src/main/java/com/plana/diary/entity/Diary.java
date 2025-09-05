@@ -19,16 +19,18 @@ public class Diary {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id; // 다이어리 기본키
 
+    @Column(nullable=false)
     private LocalDate diaryDate; // 작성된 날짜
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable=false)
     private DiaryType type; // Daily, Book, Movie
 
     private String imageUrl; // 다이어리 배경 이미지 URL
 
     //다이어리입장에서 보는 것이다.
     @ManyToOne(fetch = FetchType.LAZY) // 작성자
-    @JoinColumn(name = "member_id") // 외래키 이름 = member_id
+    @JoinColumn(name = "member_id", nullable = false) // 외래키 이름 = member_id
     private Member writer;
 
     private LocalDateTime createdAt; // 생성 시간
