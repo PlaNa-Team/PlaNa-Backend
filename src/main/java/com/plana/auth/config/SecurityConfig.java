@@ -1,6 +1,7 @@
 package com.plana.auth.config;
 
 import com.plana.auth.service.OAuth2UserService;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -89,6 +90,12 @@ public class SecurityConfig {
                 
                 // 그 외 모든 요청은 인증 필요 (JWT 토큰 필요)
                 .anyRequest().authenticated()
+            )
+
+            // 인증 실패 시 로그인 페이지로 리다이렉트하는 대신 401 Unauthorized 에러를 반환
+            .exceptionHandling(ex -> ex
+                    .authenticationEntryPoint((req, res, ex2) ->
+                            res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized"))
             )
             
             // OAuth2 로그인 설정
