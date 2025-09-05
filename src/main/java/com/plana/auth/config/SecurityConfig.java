@@ -134,8 +134,10 @@ public class SecurityConfig {
             "http://localhost",          // 포트 없는 localhost
             "http://localhost:443",      // HTTPS 포트
             "https://localhost:443",     // HTTPS
-            "http://hoonee-math.info",   // 프로덕션 도메인 (HTTP)
-            "https://hoonee-math.info"   // 프로덕션 도메인 (HTTPS)
+            "http://hoonee-math.info",   // 기존 프로덕션 도메인 (HTTP)
+            "https://hoonee-math.info",  // 기존 프로덕션 도메인 (HTTPS)
+            "http://plana.hoonee-math.info",   // 플래너 프로덕션 도메인 (HTTP)
+            "https://plana.hoonee-math.info"   // 플래너 프로덕션 도메인 (HTTPS)
         ));
         
         // 허용할 HTTP 메서드
