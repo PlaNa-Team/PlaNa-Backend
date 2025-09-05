@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 // 제네릭 타입 2개가 들어간다. Diary는 엔티티 타입, Long은 Diary의 기본키 타입
 public interface DiaryRepository extends JpaRepository<Diary, Long> {
@@ -19,5 +20,7 @@ public interface DiaryRepository extends JpaRepository<Diary, Long> {
     List<Diary> findMonthlyDiaries(@Param("writerId") Long writerId,
                                    @Param("start") LocalDate start,
                                    @Param("end") LocalDate end);
+
+    Optional<Diary> findTopByWriter_IdAndDiaryDateOrderByCreatedAtDesc(Long writerId, LocalDate diaryDate);
 
 }

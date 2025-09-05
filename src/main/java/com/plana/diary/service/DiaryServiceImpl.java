@@ -458,12 +458,13 @@ public class DiaryServiceImpl implements DiaryService {
 
     // 태그 수락, 거절
     @Override
+    @Transactional
     public TagStatusUpdateResponseDto updateDiaryTagStatus(Long tagId, Long memberId, String tagStatus){
-        // 태그 조회
+        // 1. 태그 조회
         DiaryTag tag = diaryTagRepository.findById(tagId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "태그를 찾을 수 없습니다."));
 
-        // 본인 태그만 변경 가능
+        // 2. 본인 태그만 변경 가능
         if (tag.getMember() == null || !tag.getMember().getId().equals(memberId)){
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인 태그만 변경할 수 있습니다.");
         }
@@ -471,7 +472,7 @@ public class DiaryServiceImpl implements DiaryService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "작성자 태그는 변경할 수 없습니다.");
         }
 
-        // 수락/ 거절 -> enum 매핑
+        // 3. 수락/ 거절 -> enum 매핑
         TagStatus newStatus;
 
         try {
@@ -483,17 +484,36 @@ public class DiaryServiceImpl implements DiaryService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "허용된 상태는 '수락' 또는 '거절'입니다.");
         }
 
-        // 상태 변경
-        tag.setTagStatus(newStatus);
+        // 4) 동일 상태면 변경 없음
+        if (tag.getTagStatus() == newStatus) {
+            return buildTagStatusUpdateResponse(tag); // 아래 build 메서드는 기존 응답 구성 로직 재사용
+        }
+
+        // 5) 상태 전이 로직
+        if (newStatus == TagStatus.ACCEPTED) {
+            // 같은 날짜의 기존 '수락'을 모두 '거절'로 회수
+            LocalDate date = tag.getDiary().getDiaryDate();
+            diaryTagRepository.rejectAcceptedTagsOnDate(memberId, date);
+
+            // 이번 태그 수락 + 수락 시각 기록
+            tag.setTagStatus(TagStatus.ACCEPTED);
+            tag.setAcceptedAt(LocalDateTime.now());
+
+        } else { // REJECTED
+            tag.setTagStatus(TagStatus.REJECTED);
+            tag.setAcceptedAt(null); // 거절 시 수락 시각 초기화
+        }
+
         diaryTagRepository.save(tag);
 
-        // 응답용 다이어리 본문/태그 구성
+        return buildTagStatusUpdateResponse(tag);
+    }
+
+    private TagStatusUpdateResponseDto buildTagStatusUpdateResponse(DiaryTag tag) {
         Diary diary = tag.getDiary();
 
-        // 타입별 컨텐츠 dto
         DiaryContentResponseDto contentDto = mapContentToDto(diary);
 
-        // 태그 리스트 DTO
         List<DiaryTagResponseDto> tagDtos = diaryTagRepository.findByDiary_Id(diary.getId()).stream()
                 .map(t -> {
                     if (t.getMember() != null) {
@@ -514,7 +534,6 @@ public class DiaryServiceImpl implements DiaryService {
                     }
                 }).toList();
 
-        // 다이어리 상세 dto
         DiaryDetailResponseDto diaryDto = new DiaryDetailResponseDto(
                 diary.getId(),
                 diary.getDiaryDate(),
@@ -524,15 +543,14 @@ public class DiaryServiceImpl implements DiaryService {
                 diary.getUpdatedAt(),
                 contentDto,
                 tagDtos
-
         );
 
-        // 최종 응답
         return TagStatusUpdateResponseDto.builder()
                 .id(tag.getId())
-                .tagStatus(newStatus.getDisplayName())
+                .tagStatus(tag.getTagStatus().getDisplayName())
                 .updatedAt(LocalDateTime.now())
                 .diary(diaryDto)
                 .build();
     }
+
 }
