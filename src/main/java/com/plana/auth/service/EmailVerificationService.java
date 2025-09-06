@@ -1,5 +1,6 @@
 package com.plana.auth.service;
 
+import com.plana.auth.enums.VerificationPurpose;
 import com.plana.auth.repository.MemberRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -29,35 +30,36 @@ public class EmailVerificationService {
     public enum VerifyResult { OK, EXPIRED, MISMATCH, NOT_FOUND }
 
     @Transactional
-    public boolean sendCodeIfNotDuplicated(String email) {
-        // 1) 중복 체크
-        if (memberRepository.existsByEmail(email)) {
-            return true; // 중복
-        }
+    public boolean sendCode(String rawEmail, VerificationPurpose purpose) {
+        String email = rawEmail.trim().toLowerCase();
 
-        // 2) 쿨다운(스팸 방지)
-        if (Boolean.TRUE.equals(redis.hasKey(throttleKey(email)))) {
-            // 쿨다운 중이면 그냥 200 OK로 처리하거나, 429로 응답하도록 컨트롤러에서 분기 가능
-            // 여기서는 조용히 무시하고 "보냈다" 메시지만 주고 끝내도 됨.
-        } else {
-            // 3) 코드 생성 및 저장
+        boolean exists = memberRepository.existsByEmail(email);
+        // 존재 조건 판정
+        if (purpose.shouldExist() && !exists) return false;     // 있어야 하는데 없음
+        if (!purpose.shouldExist() && exists) return false;     // 없어야 하는데 있음
+
+        // 쿨다운 체크(있으면 조용히 패스해도 되고 429로 처리해도 됨)
+        if (!Boolean.TRUE.equals(redis.hasKey(throttleKey(email)))) {
             String code = generateCode();
             redis.opsForValue().set(codeKey(email), code, TTL);
             redis.opsForValue().set(throttleKey(email), "1", COOLDOWN);
 
-            // 4) 메일 발송
-            String subject = "[PlaNa] 이메일 인증번호 안내";
+            String subject = switch (purpose) {
+                case SIGN_UP -> "[PlaNa] 회원가입 이메일 인증번호 안내";
+                case FIND_ID -> "[PlaNa] 아이디 찾기 이메일 인증번호 안내";
+                case RESET_PASSWORD -> "[PlaNa] 비밀번호 재설정 인증번호 안내";
+            };
             String body = """
                     안녕하세요.
-                    아래 인증번호를 입력해 이메일 인증을 완료해주세요.
+                    아래 인증번호를 입력해 주세요.
 
                     인증번호: %s
                     유효시간: %d분
                     """.formatted(code, TTL.toMinutes());
+
             emailSender.send(email, subject, body);
         }
-
-        return false; // 미중복 + 발송 처리
+        return true; // 정책 조건 만족 & 발송 처리
     }
 
     private String generateCode() {
@@ -85,5 +87,11 @@ public class EmailVerificationService {
     public boolean isVerified(String email) {
         String key = verifiedKey(email.trim().toLowerCase());
         return Boolean.TRUE.toString().equals(redis.opsForValue().get(key));
+    }
+
+    // 인증 만료
+    public void invalidateVerified(String rawEmail) {
+        String email = rawEmail.trim().toLowerCase();
+        redis.delete(verifiedKey(email));  // Redis에서 인증 OK 플래그 제거
     }
 }

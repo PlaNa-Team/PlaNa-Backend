@@ -27,6 +27,7 @@ public class MemberService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final StringRedisTemplate redis;
+    private final EmailVerificationService emailVerificationService;
 
     @Value("${jwt.refresh-token-validity}")
     private long refreshTokenValidityMs;
@@ -267,4 +268,29 @@ public class MemberService {
 
         m.setNickname(newNickname);
     }
+
+    /**
+     * 비밀번호 재설정
+     * @param req 비밀번호 재설정 요청 DTO (이메일, 새 비밀번호, 확인 비밀번호 포함)
+     * @throws  IllegalArgumentException 인증 실패, 회원 미존재, 비밀번호 불일치 등의 경우 발생
+     */
+    @Transactional
+    public void resetPassword(PasswordResetRequestDto req) {
+        String email = req.getEmail().trim().toLowerCase();
+
+        if (!emailVerificationService.isVerified(email)) {
+            throw new UnauthorizedException("이메일 인증이 필요합니다.");
+        }
+
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("회원이 존재하지 않습니다."));
+
+        if (!req.getNewPassword().equals(req.getConfirmPassword())) {
+            throw new IllegalArgumentException("비밀번호 확인이 일치하지 않습니다.");
+        }
+
+        member.setPassword(passwordEncoder.encode(req.getNewPassword()));
+        emailVerificationService.invalidateVerified(email);
+    }
+
 }

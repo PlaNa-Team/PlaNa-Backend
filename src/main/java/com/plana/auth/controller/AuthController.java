@@ -2,6 +2,7 @@ package com.plana.auth.controller;
 
 import com.plana.auth.dto.*;
 import com.plana.auth.entity.Member;
+import com.plana.auth.enums.VerificationPurpose;
 import com.plana.auth.repository.MemberRepository;
 import com.plana.auth.service.EmailVerificationService;
 import com.plana.auth.service.JwtTokenProvider;
@@ -30,6 +31,8 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+
+import static com.plana.auth.enums.VerificationPurpose.SIGN_UP;
 
 /**
  * 인증 관련 API 컨트롤러
@@ -285,12 +288,22 @@ public class AuthController {
 
     // 이메일 인증번호 발송
     @PostMapping("/email/verification-code")
-    public ResponseEntity<EmailSendResponseDto> sendVerificationCode(@Valid @RequestBody EmailSendRequestDto request) {
+    public ResponseEntity<EmailSendResponseDto> sendVerificationCode(
+            @Valid @RequestBody EmailSendRequestDto request) {
+
         String email = request.getEmail().trim().toLowerCase();
-        boolean duplicated = emailVerificationService.sendCodeIfNotDuplicated(email);
-        return duplicated
-                ? ResponseEntity.status(409).body(EmailSendResponseDto.duplicated())
-                : ResponseEntity.ok(EmailSendResponseDto.sent());
+        VerificationPurpose purpose = request.getPurpose();
+
+        boolean success = emailVerificationService.sendCode(email, purpose);
+
+        if (!success) {
+            return switch (purpose) {
+                case SIGN_UP -> ResponseEntity.status(409).body(EmailSendResponseDto.duplicated());
+                default      -> ResponseEntity.status(404).body(EmailSendResponseDto.notFound());
+            };
+        }
+
+        return ResponseEntity.ok(EmailSendResponseDto.sent());
     }
 
     // 이메일 인증번호 확인
@@ -302,6 +315,18 @@ public class AuthController {
             case MISMATCH -> ResponseEntity.badRequest().body(Map.of("status", 400, "verified", false, "message", "인증번호가 일치하지 않습니다."));
             case EXPIRED, NOT_FOUND -> ResponseEntity.status(410).body(Map.of("status", 410, "verified", false, "message", "인증번호가 만료되었거나 존재하지 않습니다."));
         };
+    }
+
+    // 비밀번호 재설정
+    @PostMapping("/password/reset")
+    public ResponseEntity<?> resetPassword(@Valid @RequestBody PasswordResetRequestDto req) {
+        memberService.resetPassword(req);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "비밀번호가 성공적으로 변경되었습니다.");
+        response.put("status", 200);
+
+        return ResponseEntity.ok(response);
     }
 
 }
