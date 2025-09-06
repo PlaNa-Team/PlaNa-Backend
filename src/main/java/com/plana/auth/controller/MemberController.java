@@ -1,6 +1,7 @@
 package com.plana.auth.controller;
 
 import com.plana.auth.dto.AuthenticatedMemberDto;
+import com.plana.auth.dto.MemberInfoResponseDto;
 import com.plana.auth.dto.NicknameUpdateRequestDto;
 import com.plana.auth.exception.UnauthorizedException;
 import com.plana.auth.service.MemberService;
@@ -19,6 +20,20 @@ import java.util.Map;
 public class MemberController {
 
     private final MemberService memberService;
+
+    @GetMapping("")
+    public ResponseEntity<?> getMyInfo(
+            @AuthenticationPrincipal AuthenticatedMemberDto auth
+    ) {
+        if (auth == null) throw new UnauthorizedException("인증이 필요합니다");
+
+        MemberInfoResponseDto data = memberService.getMyInfo(auth.getId());
+        return ResponseEntity.ok(Map.of(
+                "status", 200,
+                "message", "회원 정보 조회를 성공했습니다.",
+                "data", data
+        ));
+    }
 
     // 아이디 중복 확인
     @GetMapping("/check-id")
@@ -66,6 +81,8 @@ public class MemberController {
             @RequestBody NicknameUpdateRequestDto req,
             @AuthenticationPrincipal AuthenticatedMemberDto auth
     ) {
+        if (auth == null) throw new UnauthorizedException("인증이 필요합니다");
+
         memberService.updateNickname(auth.getId(), req.getNickname());
         return ResponseEntity.ok(Map.of(
                 "status", 200,

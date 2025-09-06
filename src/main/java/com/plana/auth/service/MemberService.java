@@ -14,8 +14,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
-
 /**
  * 일반 회원가입/로그인 비즈니스 로직 서비스
  * 기존 소셜 로그인 시스템과 완전 호환
@@ -175,6 +173,27 @@ public class MemberService {
                 .refreshMaxAgeSec(rtMs / 1000)
                 .member(memberInfo)
                 .build();
+    }
+
+    /**
+     * 본인 정보 조회
+     * @param memberId 조회할 회원의 ID
+     * @return MemberInfoResponseDto 회원의 상세 정보(id, loginId, name, email, nickname, provider, createdAt)
+     * @throws IllegalArgumentException 해당 ID의 회원이 존재하지 않을 경우 발생
+     */
+    public MemberInfoResponseDto getMyInfo(Long memberId) {
+        Member m = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("회원이 존재하지 않습니다."));
+
+        return new MemberInfoResponseDto(
+                m.getId(),
+                m.getLoginId(),
+                m.getName(),
+                m.getEmail(),
+                m.getNickname(),
+                m.getProvider().name(),
+                m.getCreatedAt()
+        );
     }
 
     /**
