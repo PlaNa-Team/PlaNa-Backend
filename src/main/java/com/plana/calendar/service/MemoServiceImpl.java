@@ -17,6 +17,7 @@ import java.time.YearMonth;
 import java.time.temporal.WeekFields;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -84,12 +85,27 @@ public class MemoServiceImpl implements MemoService {
         // 입력 검증
         validateMemoCreateRequest(createDto);
         
+        // 메모 타입 변환
+        Memo.MemoType memoType = Memo.MemoType.valueOf(createDto.getType());
+        
+        // 기존 메모 개수 확인 (중복 방지) - 성능 최적화
+        int existingMemoCount = memoRepository.countExistingMemos(
+                memberId, 
+                (short) createDto.getYear(), 
+                (short) createDto.getWeek(), 
+                memoType
+        );
+
+        if (existingMemoCount > 0) {
+            throw new IllegalArgumentException(
+                String.format("해당 주차에 이미 %s 메모가 존재합니다. (연도: %d, 주차: %d, 기존 개수: %d)", 
+                    createDto.getType(), createDto.getYear(), createDto.getWeek(), existingMemoCount)
+            );
+        }
+        
         // 사용자 조회
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
-        
-        // 메모 타입 변환
-        Memo.MemoType memoType = Memo.MemoType.valueOf(createDto.getType());
         
         // 메모 엔티티 생성
         Memo memo = Memo.builder()

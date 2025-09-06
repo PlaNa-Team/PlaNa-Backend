@@ -29,7 +29,6 @@ public interface MemoRepository extends JpaRepository<Memo, Long> {
             "AND m.year = :year " +
             "AND m.week BETWEEN :startWeek AND :endWeek " +
             "AND m.type = :type " +
-            "AND m.isDeleted = false " +
             "ORDER BY m.week ASC, m.createdAt ASC")
     List<Memo> findMemosInWeekRange(@Param("memberId") Long memberId,
                                    @Param("year") Short year,
@@ -46,9 +45,28 @@ public interface MemoRepository extends JpaRepository<Memo, Long> {
      */
     @Query("SELECT m FROM Memo m " +
             "WHERE m.id = :id " +
-            "AND m.member.id = :memberId " +
-            "AND m.isDeleted = false")
+            "AND m.member.id = :memberId")
     Optional<Memo> findByIdAndMemberId(@Param("id") Long id, 
                                       @Param("memberId") Long memberId);
+    
+    /**
+     * 특정 사용자-타입-연도-주차의 메모 개수 확인 (중복 방지용)
+     * 성능 최적화: 전체 엔티티 조회 대신 COUNT만 반환
+     * 
+     * @param memberId 사용자 ID
+     * @param year 연도
+     * @param week 주차
+     * @param type 메모 타입
+     * @return 해당 조건의 메모 개수
+     */
+    @Query("SELECT COUNT(m) FROM Memo m " +
+            "WHERE m.member.id = :memberId " +
+            "AND m.year = :year " +
+            "AND m.week = :week " +
+            "AND m.type = :type")
+    int countExistingMemos(@Param("memberId") Long memberId,
+                          @Param("year") Short year,
+                          @Param("week") Short week,
+                          @Param("type") Memo.MemoType type);
 
 }

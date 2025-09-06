@@ -52,7 +52,7 @@ public class Memo {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
     
-    // 일정 삭제 여부 (FALSE(기본값))
+    // 일정 삭제 여부 (FALSE(기본값)) - 실제로 사용하지는 않음. 데이터 지우는건 PATCH 로 내용이 지워지면 지워진다고 봐야할 것 같음
     @Column(name = "is_deleted")
     @Builder.Default
     private Boolean isDeleted = false;
