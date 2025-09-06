@@ -230,4 +230,22 @@ public class MemberService {
         // 토큰/세션 정리 (로그인에 redis 적용 시)
         // revokeTokensFor(m.getId());
     }
+
+    /**
+     * 사용자 닉네임 변경
+     * @param memberId 사용자 고유번호
+     * @param newNickname 변경한 닉네임
+     * @throws IllegalArgumentException 사용자 없음
+     */
+    @Transactional
+    public void updateNickname(Long memberId, String newNickname) {
+        Member m = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다"));
+
+        if (m.getNickname().equals(newNickname)) {
+            throw new IllegalArgumentException("기존 닉네임과 동일한 값으로는 변경할 수 없습니다");
+        }
+
+        m.setNickname(newNickname);
+    }
 }

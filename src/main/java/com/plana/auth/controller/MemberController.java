@@ -1,6 +1,7 @@
 package com.plana.auth.controller;
 
 import com.plana.auth.dto.AuthenticatedMemberDto;
+import com.plana.auth.dto.NicknameUpdateRequestDto;
 import com.plana.auth.exception.UnauthorizedException;
 import com.plana.auth.service.MemberService;
 import jakarta.servlet.http.Cookie;
@@ -56,6 +57,19 @@ public class MemberController {
         return ResponseEntity.ok(Map.of(
                 "status", 200,
                 "message", "회원 탈퇴가 완료되었습니다.",
+                "timestamp", System.currentTimeMillis()
+        ));
+    }
+
+    @PutMapping("/nickname")
+    public ResponseEntity<?> updateNickname(
+            @RequestBody NicknameUpdateRequestDto req,
+            @AuthenticationPrincipal AuthenticatedMemberDto auth
+    ) {
+        memberService.updateNickname(auth.getId(), req.getNickname());
+        return ResponseEntity.ok(Map.of(
+                "status", 200,
+                "message", "닉네임이 변경되었습니다.",
                 "timestamp", System.currentTimeMillis()
         ));
     }
