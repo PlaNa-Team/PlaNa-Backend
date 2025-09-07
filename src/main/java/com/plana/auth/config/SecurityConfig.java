@@ -137,7 +137,9 @@ public class SecurityConfig {
             "http://hoonee-math.info",   // 기존 프로덕션 도메인 (HTTP)
             "https://hoonee-math.info",  // 기존 프로덕션 도메인 (HTTPS)
             "http://plana.hoonee-math.info",   // 플래너 프로덕션 도메인 (HTTP)
-            "https://plana.hoonee-math.info"   // 플래너 프로덕션 도메인 (HTTPS)
+            "https://plana.hoonee-math.info",   // 플래너 프로덕션 도메인 (HTTPS)
+            "http://plana-frontend-silk.vercel.app",
+            "https://plana-frontend-silk.vercel.app"
         ));
         
         // 허용할 HTTP 메서드
