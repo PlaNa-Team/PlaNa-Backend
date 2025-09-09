@@ -74,6 +74,7 @@ public class DiaryServiceImpl implements DiaryService {
                         .endDate(bookDto.getEndDate())
                         .rating(bookDto.getRating())
                         .comment(bookDto.getComment())
+                        .rewatch(bookDto.isRewatch())
                         .build();
                 bookRepository.save(book);
             }
@@ -89,6 +90,7 @@ public class DiaryServiceImpl implements DiaryService {
                         .rewatch(movieDto.isRewatch())
                         .rating(movieDto.getRating())
                         .comment(movieDto.getComment())
+                        .releaseDate(movieDto.getReleaseDate())
                         .build();
                 movieRepository.save(movie);
             }

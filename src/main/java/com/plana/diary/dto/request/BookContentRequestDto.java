@@ -16,14 +16,12 @@ public class BookContentRequestDto {
 
     @NotBlank(message = "책 제목을 작성해주세요.")
     private String title;
-
-    @NotBlank(message = "저자를 입력해주세요.")
     private String author;
     private String publisher;
     private String genre;
     private Integer rating;
     private String comment;
-
+    private boolean rewatch;
     private LocalDate startDate;
     private LocalDate endDate;
 }

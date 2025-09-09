@@ -17,4 +17,5 @@ public class MovieContentResponseDto implements DiaryContentResponseDto{
    private boolean rewatch;
    private Integer rating;
    private String comment;
+   private LocalDate releaseDate;
 }
