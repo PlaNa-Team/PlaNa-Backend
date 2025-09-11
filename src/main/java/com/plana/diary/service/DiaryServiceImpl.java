@@ -56,9 +56,10 @@ public class DiaryServiceImpl implements DiaryService {
                 Daily daily = Daily.builder()
                         .diary(diary)
                         .title(dailyDto.getTitle())
-                        .location(dailyDto.getLocation())
-                        .memo((dailyDto.getMemo()))
+                        .location(dailyDto.getLocation() != null ? dailyDto.getLocation() : "")
+                        .memo(dailyDto.getMemo() != null ? dailyDto.getMemo() : "")
                         .build();
+
                 dailyRepository.save(daily);
             }
 
@@ -67,15 +68,16 @@ public class DiaryServiceImpl implements DiaryService {
                 Book book = Book.builder()
                         .diary(diary)
                         .title(bookDto.getTitle())
-                        .author(bookDto.getAuthor())
-                        .genre(bookDto.getGenre())
-                        .publisher(bookDto.getPublisher())
+                        .author(bookDto.getAuthor() != null ? bookDto.getAuthor() : "")
+                        .genre(bookDto.getGenre() != null ? bookDto.getGenre() : "")
+                        .publisher(bookDto.getPublisher() != null ? bookDto.getPublisher() : "")
                         .startDate(bookDto.getStartDate())
                         .endDate(bookDto.getEndDate())
-                        .rating(bookDto.getRating())
-                        .comment(bookDto.getComment())
+                        .rating(bookDto.getRating() != null ? bookDto.getRating() : 0)
+                        .comment(bookDto.getComment() != null ? bookDto.getComment() : "")
                         .rewatch(bookDto.isRewatch())
                         .build();
+
                 bookRepository.save(book);
             }
 
@@ -84,12 +86,12 @@ public class DiaryServiceImpl implements DiaryService {
                 Movie movie = Movie.builder()
                         .diary(diary)
                         .title(movieDto.getTitle())
-                        .director(movieDto.getDirector())
-                        .actors(movieDto.getActors())
-                        .genre(movieDto.getGenre())
+                        .director(movieDto.getDirector() != null ? movieDto.getDirector() : "")
+                        .actors(movieDto.getActors() != null ? movieDto.getActors() : "")
+                        .genre(movieDto.getGenre() != null ? movieDto.getGenre() : "")
                         .rewatch(movieDto.isRewatch())
-                        .rating(movieDto.getRating())
-                        .comment(movieDto.getComment())
+                        .rating(movieDto.getRating() != null ? movieDto.getRating() : 0)
+                        .comment(movieDto.getComment() != null ? movieDto.getComment() : "")
                         .releaseDate(movieDto.getReleaseDate())
                         .build();
                 movieRepository.save(movie);
