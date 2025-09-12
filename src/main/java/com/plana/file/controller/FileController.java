@@ -1,7 +1,7 @@
 package com.plana.file.controller;
 
 import com.plana.auth.service.JwtTokenProvider;
-import com.plana.file.dto.response.TempFileResponseDto;
+import com.plana.file.dto.response.FileUploadResponseDto;
 import com.plana.file.service.FileService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +17,7 @@ public class FileController {
     private final FileService fileService;
     private final JwtTokenProvider jwtTokenProvider;
 
-    @PostMapping("/temp-upload")
+    @PostMapping("/upload")
     public ResponseEntity<?> uploadTempFile(
             HttpServletRequest request,
             @RequestParam("file")MultipartFile file
@@ -35,7 +35,7 @@ public class FileController {
         // 사용자 ID 추출
         Long memberId = jwtTokenProvider.getMemberIdFromToken(token);
 
-        TempFileResponseDto response = fileService.saveTempFile(file, memberId);
+        FileUploadResponseDto response = fileService.saveImageFile(file, memberId);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 new ApiResponse<>(201, response) // status + data 구조가 모든 API에서 통일하도록. -> record는 응답의 껍데기 역할을 한다.
