@@ -123,7 +123,11 @@ public class DiaryServiceImpl implements DiaryService {
                 diaryTagRepository.save(tag);
 
                 // response DTO (회원이면 memberId 반환)
-                tagDtos.add(new CreateDiaryTagResponseDto(taggedMember.getId()));
+                tagDtos.add(CreateDiaryTagResponseDto.builder()
+                        .memberId(taggedMember.getId() != null ? taggedMember.getId() : null)
+                        .tagText(tag.getTagText() != null ? tag.getTagText() : "")
+                        .tagStatus(tag.getTagStatus())
+                        .build());
 
             } else if (tagDto.getTagText() != null && !tagDto.getTagText().isBlank()) {
                 // 4-2. 사용자 입력 태그 (회원 없는 태그)
@@ -135,8 +139,12 @@ public class DiaryServiceImpl implements DiaryService {
 
                 diaryTagRepository.save(tag);
 
-                // response DTO (비회원 태그는 memberId 없음 → null)
-                tagDtos.add(new CreateDiaryTagResponseDto(null));
+                // response DTO (비회원 태그는 memberId 없음 )
+                tagDtos.add(CreateDiaryTagResponseDto.builder()
+                        .memberId(null)
+                        .tagText(tag.getTagText())
+                        .tagStatus(tag.getTagStatus())
+                        .build());
             }
         }
 

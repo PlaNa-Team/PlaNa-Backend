@@ -24,11 +24,9 @@ public class ApiResponse<T> {
 
     // 성공 응답 생성
     public static <T> ApiResponse<T> success(int status, T data) {
-        return new ApiResponse<>(status, null, new Body<>(data));
+        return new ApiResponse<>(status, "성공", new Body<>(data));
     }
 
     // 실패 응답 생성
-    public static <T> ApiResponse<T> error(int status, String message) {
-        return new ApiResponse<>(status, message, null);
-    }
+    public static <T> ApiResponse<T> error(int status, String message) { return new ApiResponse<>(status,  message != null ? message : "실패", null); }
 }
