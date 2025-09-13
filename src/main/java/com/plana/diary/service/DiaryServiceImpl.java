@@ -56,9 +56,10 @@ public class DiaryServiceImpl implements DiaryService {
                 Daily daily = Daily.builder()
                         .diary(diary)
                         .title(dailyDto.getTitle())
-                        .location(dailyDto.getLocation())
-                        .memo((dailyDto.getMemo()))
+                        .location(dailyDto.getLocation() != null ? dailyDto.getLocation() : "")
+                        .memo(dailyDto.getMemo() != null ? dailyDto.getMemo() : "")
                         .build();
+
                 dailyRepository.save(daily);
             }
 
@@ -67,14 +68,16 @@ public class DiaryServiceImpl implements DiaryService {
                 Book book = Book.builder()
                         .diary(diary)
                         .title(bookDto.getTitle())
-                        .author(bookDto.getAuthor())
-                        .genre(bookDto.getGenre())
-                        .publisher(bookDto.getPublisher())
+                        .author(bookDto.getAuthor() != null ? bookDto.getAuthor() : "")
+                        .genre(bookDto.getGenre() != null ? bookDto.getGenre() : "")
+                        .publisher(bookDto.getPublisher() != null ? bookDto.getPublisher() : "")
                         .startDate(bookDto.getStartDate())
                         .endDate(bookDto.getEndDate())
-                        .rating(bookDto.getRating())
-                        .comment(bookDto.getComment())
+                        .rating(bookDto.getRating() != null ? bookDto.getRating() : 0)
+                        .comment(bookDto.getComment() != null ? bookDto.getComment() : "")
+                        .rewatch(Boolean.TRUE.equals(bookDto.getRewatch()))
                         .build();
+
                 bookRepository.save(book);
             }
 
@@ -83,12 +86,13 @@ public class DiaryServiceImpl implements DiaryService {
                 Movie movie = Movie.builder()
                         .diary(diary)
                         .title(movieDto.getTitle())
-                        .director(movieDto.getDirector())
-                        .actors(movieDto.getActors())
-                        .genre(movieDto.getGenre())
-                        .rewatch(movieDto.isRewatch())
-                        .rating(movieDto.getRating())
-                        .comment(movieDto.getComment())
+                        .director(movieDto.getDirector() != null ? movieDto.getDirector() : "")
+                        .actors(movieDto.getActors() != null ? movieDto.getActors() : "")
+                        .genre(movieDto.getGenre() != null ? movieDto.getGenre() : "")
+                        .rewatch(Boolean.TRUE.equals(movieDto.getRewatch()))
+                        .rating(movieDto.getRating() != null ? movieDto.getRating() : 0)
+                        .comment(movieDto.getComment() != null ? movieDto.getComment() : "")
+                        .releaseDate(movieDto.getReleaseDate())
                         .build();
                 movieRepository.save(movie);
             }
@@ -119,7 +123,14 @@ public class DiaryServiceImpl implements DiaryService {
                 diaryTagRepository.save(tag);
 
                 // response DTO (회원이면 memberId 반환)
-                tagDtos.add(new CreateDiaryTagResponseDto(taggedMember.getId()));
+                tagDtos.add(CreateDiaryTagResponseDto.builder()
+                        .id(tag.getId())
+                        .memberId(taggedMember.getId() != null ? taggedMember.getId() : null)
+                        .loginId(taggedMember.getLoginId() != null ? taggedMember.getLoginId() :null)
+                        .memberNickname(taggedMember.getNickname() != null ? taggedMember.getNickname() : null)
+                        .tagText(tag.getTagText() != null ? tag.getTagText() : "")
+                        .tagStatus(tag.getTagStatus())
+                        .build());
 
             } else if (tagDto.getTagText() != null && !tagDto.getTagText().isBlank()) {
                 // 4-2. 사용자 입력 태그 (회원 없는 태그)
@@ -131,8 +142,15 @@ public class DiaryServiceImpl implements DiaryService {
 
                 diaryTagRepository.save(tag);
 
-                // response DTO (비회원 태그는 memberId 없음 → null)
-                tagDtos.add(new CreateDiaryTagResponseDto(null));
+                // response DTO (비회원 태그는 memberId 없음 )
+                tagDtos.add(CreateDiaryTagResponseDto.builder()
+                        .id(null)
+                        .memberId(null)
+                        .loginId(null)
+                        .memberNickname(null)
+                        .tagText(tag.getTagText())
+                        .tagStatus(tag.getTagStatus())
+                        .build());
             }
         }
 
@@ -151,38 +169,28 @@ public class DiaryServiceImpl implements DiaryService {
 
     // 다이어리 상세 조회
     @Override
-    public DiaryDetailResponseDto getDiaryDetail(Long diaryId, Long memberId){
-        // 1. 다이어리 존재 여부 확인
-        Diary diary = diaryRepository.findById(diaryId)
-                .orElseThrow(() -> new IllegalArgumentException("다이어리를 찾을 수 없습니다."));
+    public DiaryDetailResponseDto getDiaryDetailByDate(LocalDate date, Long memberId) {
+        // 1) 날짜 기준 대표 1건 선택 (공유 ACCEPTED 우선 → 없으면 내 글 최신)
+        Diary diary = diaryRepository.findRepresentativeByDate(memberId, date)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 날짜의 다이어리가 없습니다."));
 
-        // 2. 태그 정보 확인 (작성자 or 태그된 사용자만 조회 가능)
+        // 2) 권한 체크: 작성자이거나, 내가 태그된 사용자여야 함(삭제 태그는 불가)
         boolean isWriter = diary.getWriter().getId().equals(memberId);
-
-        // 3. 작성자가 아니면 태그 조회
-        List<DiaryTag> myTags = diaryTagRepository.findByDiary_IdAndMember_Id(diaryId, memberId);
-
-        // 4. 권한 체크
-        if (!isWriter && myTags.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "조회 권한이 없습니다.");
+        if (!isWriter) {
+            List<DiaryTag> myTags = diaryTagRepository.findByDiary_IdAndMember_Id(diary.getId(), memberId);
+            if (myTags.isEmpty() ||
+                    myTags.stream().allMatch(tag -> tag.getTagStatus() == TagStatus.DELETED)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "조회 권한이 없습니다.");
+            }
         }
 
-        // 태그가 있고 + 삭제 상태 + 작성자 아님 → 권한 없음
-        boolean allDeleted = myTags.stream()
-                .allMatch(tag -> tag.getTagStatus() == TagStatus.DELETED);
-
-        if (!isWriter && allDeleted) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "삭제된 다이어리는 조회할 수 없습니다.");
-        }
-
-        // 5. 타입별(일상, 책, 영화) dto 변환
+        // 3) 타입별 컨텐츠 매핑
         DiaryContentResponseDto contentDto = mapContentToDto(diary);
 
-        // 6. 태그 리스트 매핑
-        // stream은 리스트를 순차 처리하는 파이프라인 / map은 각 요소를 변환 / toList는 최종적으로 리스트로 모음
-        List<DiaryTagResponseDto> tagDtos = diaryTagRepository.findByDiary_Id(diaryId).stream()
+        // 4) 태그 리스트 매핑
+        List<DiaryTagResponseDto> tagDtos = diaryTagRepository.findByDiary_Id(diary.getId()).stream()
                 .map(tag -> {
-                    if(tag.getMember() != null){
+                    if (tag.getMember() != null) {
                         Member m = tag.getMember();
                         return DiaryTagResponseDto.builder()
                                 .id(tag.getId())
@@ -191,7 +199,7 @@ public class DiaryServiceImpl implements DiaryService {
                                 .memberNickname(m.getNickname())
                                 .tagStatus(tag.getTagStatus())
                                 .build();
-                    }else {
+                    } else {
                         return DiaryTagResponseDto.builder()
                                 .id(tag.getId())
                                 .tagText(tag.getTagText())
@@ -200,7 +208,7 @@ public class DiaryServiceImpl implements DiaryService {
                     }
                 }).toList();
 
-
+        // 5) 응답
         return new DiaryDetailResponseDto(
                 diary.getId(),
                 diary.getDiaryDate(),
@@ -212,6 +220,7 @@ public class DiaryServiceImpl implements DiaryService {
                 tagDtos
         );
     }
+
 
 
     private DiaryContentResponseDto mapContentToDto(Diary diary) {
@@ -237,6 +246,7 @@ public class DiaryServiceImpl implements DiaryService {
                         .endDate(book.getEndDate())
                         .rating(book.getRating())
                         .comment(book.getComment())
+                        .rewatch(book.isRewatch())
                         .build();
             }
             case MOVIE -> {
@@ -250,6 +260,7 @@ public class DiaryServiceImpl implements DiaryService {
                         .rewatch(movie.isRewatch())
                         .rating(movie.getRating())
                         .comment(movie.getComment())
+                        .releaseDate(movie.getReleaseDate())
                         .build();
             }
         };
@@ -273,13 +284,33 @@ public class DiaryServiceImpl implements DiaryService {
         LocalDate end = start.with(TemporalAdjusters.lastDayOfMonth());
 
         //다이어리 조회 : SQL 실행 결과 -> Diary 엔티티로 매핑 -> List 형태로 변환 -> diaries 변수에 저장
-        List<Diary> diaries = diaryRepository.findMonthlyDiaries(memberId, start, end);
+        List<Diary> diaries = diaryRepository.findMonthlyRepresentatives(memberId, start, end);
 
         if(diaries.isEmpty()){
             return DiaryMonthlyResponseDto.builder()
                     .diaryList(Collections.emptyList())
                     .build();
         }
+
+        // 1) 표시 날짜 맵: 공유 수락 글 → acceptedAt.date
+        List<Long> ids = diaries.stream().map(Diary::getId).toList();
+        Map<Long, LocalDate> displayDateByDiaryId = new HashMap<>();
+        diaryTagRepository
+                .findByDiary_IdInAndMember_IdAndTagStatus(ids, memberId, TagStatus.ACCEPTED)
+                .forEach(t -> {
+                    if (t.getAcceptedAt() != null) {
+                        displayDateByDiaryId.put(t.getDiary().getId(), t.getAcceptedAt().toLocalDate());
+                    }
+                });
+
+    // 2) 나머지(내 글 등) → updatedAt(없으면 createdAt).date
+        for (Diary d : diaries) {
+            displayDateByDiaryId.putIfAbsent(
+                    d.getId(),
+                    (d.getUpdatedAt() != null ? d.getUpdatedAt() : d.getCreatedAt()).toLocalDate()
+            );
+        }
+
 
         //타입별 diaryId 모으기
         List<Long> dailyIds = new ArrayList<>();
@@ -314,7 +345,7 @@ public class DiaryServiceImpl implements DiaryService {
         List<DiaryMonthlyItemDto> items = diaries.stream()
                 .map( d -> DiaryMonthlyItemDto.builder()
                         .id(d.getId())
-                        .diaryDate(d.getDiaryDate())
+                        .diaryDate(displayDateByDiaryId.get(d.getId()))
                         .type(d.getType().name())
                         .imageUrl(d.getImageUrl())
                         .title(titleByDiaryId.getOrDefault(d.getId(), "")) // getOrDefault는 키에 해당하는 값이 있으면 그 값을 반환하고, 없으면 기본값을 반환
@@ -328,6 +359,7 @@ public class DiaryServiceImpl implements DiaryService {
 
     // 다이어리 삭제
     @Override
+    @Transactional
     public void deleteDiary(Long diaryId, Long memberId){
         // 다이어리 대상 조회
         Diary diary = diaryRepository.findById(diaryId)
@@ -407,6 +439,7 @@ public class DiaryServiceImpl implements DiaryService {
                     }
                     if (dto.getStartDate() != null) book.setStartDate(dto.getStartDate());
                     if (dto.getEndDate() != null) book.setEndDate(dto.getEndDate());
+                    if (dto.getRewatch() != null) book.setRewatch(dto.getRewatch());
                 }
                 case MOVIE -> {
                     Movie movie = movieRepository.findByDiary_Id(diaryId)
@@ -418,7 +451,8 @@ public class DiaryServiceImpl implements DiaryService {
                     if (dto.getGenre() != null) movie.setGenre(dto.getGenre());
                     if (dto.getRating() != null) movie.setRating(dto.getRating());
                     if (dto.getComment() != null) movie.setComment(dto.getComment());
-                    movie.setRewatch(dto.isRewatch());
+                    if (dto.getRewatch() != null) movie.setRewatch(dto.getRewatch());
+                    if (dto.getReleaseDate() != null) movie.setReleaseDate(dto.getReleaseDate());
                 }
             }
         }
@@ -446,7 +480,7 @@ public class DiaryServiceImpl implements DiaryService {
                 ? DiaryTagResponseDto.builder().id(tag.getId()).memberId(tag.getMember().getId())
                                 .loginId(tag.getMember().getLoginId()).memberNickname(tag.getMember().getNickname())
                                 .tagStatus(tag.getTagStatus()).build()
-                        : DiaryTagResponseDto.builder().id(tag.getId()).tagText(tag.getTagText())
+                        : DiaryTagResponseDto.builder().id(null).tagText(tag.getTagText())
                                 .tagStatus(tag.getTagStatus()).build())
                 .toList();
 
@@ -458,12 +492,13 @@ public class DiaryServiceImpl implements DiaryService {
 
     // 태그 수락, 거절
     @Override
+    @Transactional
     public TagStatusUpdateResponseDto updateDiaryTagStatus(Long tagId, Long memberId, String tagStatus){
-        // 태그 조회
+        // 1. 태그 조회
         DiaryTag tag = diaryTagRepository.findById(tagId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "태그를 찾을 수 없습니다."));
 
-        // 본인 태그만 변경 가능
+        // 2. 본인 태그만 변경 가능
         if (tag.getMember() == null || !tag.getMember().getId().equals(memberId)){
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인 태그만 변경할 수 있습니다.");
         }
@@ -471,7 +506,7 @@ public class DiaryServiceImpl implements DiaryService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "작성자 태그는 변경할 수 없습니다.");
         }
 
-        // 수락/ 거절 -> enum 매핑
+        // 3. 수락/ 거절 -> enum 매핑
         TagStatus newStatus;
 
         try {
@@ -483,17 +518,36 @@ public class DiaryServiceImpl implements DiaryService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "허용된 상태는 '수락' 또는 '거절'입니다.");
         }
 
-        // 상태 변경
-        tag.setTagStatus(newStatus);
+        // 4) 동일 상태면 변경 없음
+        if (tag.getTagStatus() == newStatus) {
+            return buildTagStatusUpdateResponse(tag); // 아래 build 메서드는 기존 응답 구성 로직 재사용
+        }
+
+        // 5) 상태 전이 로직
+        if (newStatus == TagStatus.ACCEPTED) {
+            // 같은 날짜의 기존 '수락'을 모두 '거절'로 회수
+            LocalDate date = tag.getDiary().getDiaryDate();
+            diaryTagRepository.rejectAcceptedTagsOnDate(memberId, date);
+
+            // 이번 태그 수락 + 수락 시각 기록
+            tag.setTagStatus(TagStatus.ACCEPTED);
+            tag.setAcceptedAt(LocalDateTime.now());
+
+        } else { // REJECTED
+            tag.setTagStatus(TagStatus.REJECTED);
+            tag.setAcceptedAt(null); // 거절 시 수락 시각 초기화
+        }
+
         diaryTagRepository.save(tag);
 
-        // 응답용 다이어리 본문/태그 구성
+        return buildTagStatusUpdateResponse(tag);
+    }
+
+    private TagStatusUpdateResponseDto buildTagStatusUpdateResponse(DiaryTag tag) {
         Diary diary = tag.getDiary();
 
-        // 타입별 컨텐츠 dto
         DiaryContentResponseDto contentDto = mapContentToDto(diary);
 
-        // 태그 리스트 DTO
         List<DiaryTagResponseDto> tagDtos = diaryTagRepository.findByDiary_Id(diary.getId()).stream()
                 .map(t -> {
                     if (t.getMember() != null) {
@@ -514,7 +568,6 @@ public class DiaryServiceImpl implements DiaryService {
                     }
                 }).toList();
 
-        // 다이어리 상세 dto
         DiaryDetailResponseDto diaryDto = new DiaryDetailResponseDto(
                 diary.getId(),
                 diary.getDiaryDate(),
@@ -524,15 +577,14 @@ public class DiaryServiceImpl implements DiaryService {
                 diary.getUpdatedAt(),
                 contentDto,
                 tagDtos
-
         );
 
-        // 최종 응답
         return TagStatusUpdateResponseDto.builder()
                 .id(tag.getId())
-                .tagStatus(newStatus.getDisplayName())
+                .tagStatus(tag.getTagStatus().getDisplayName())
                 .updatedAt(LocalDateTime.now())
                 .diary(diaryDto)
                 .build();
     }
+
 }

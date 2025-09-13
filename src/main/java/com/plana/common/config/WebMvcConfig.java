@@ -26,8 +26,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // /uploads/** 요청 → 프로젝트 루트/uploads/ 실제 파일 매핑
+        // 로컬 디스크의 uploads 폴더를 /uploads/** 로 노출
         registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:uploads/");
+                .addResourceLocations("file:uploads/")   // 프로젝트 루트/uploads
+                .setCachePeriod(3600);
     }
 }

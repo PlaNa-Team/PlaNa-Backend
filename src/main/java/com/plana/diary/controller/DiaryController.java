@@ -11,11 +11,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.*;
 
 @RestController
@@ -72,23 +74,17 @@ public class DiaryController {
     }
 
     // 다이어리 조회
-    @GetMapping("/diaries/{diaryId}")
-    public ResponseEntity<DiaryDetailResponseDto> getDiaryDetail(
-            @PathVariable Long diaryId, //URL 경로에서 diaryId 값을 변수로 받는다.
+    @GetMapping("/diaries/detail")
+    public ResponseEntity<DiaryDetailResponseDto> getDiaryDetailByDate(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             HttpServletRequest request
-    ){
-        // 1. JWT 토큰 확인
+    ) {
         String token = jwtTokenProvider.resolveToken(request);
-        if (token == null){
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
+        if (token == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         Long memberId = jwtTokenProvider.getMemberIdFromToken(token);
-
-        // 2. 서비스 호출
-        DiaryDetailResponseDto responseDto = diaryService.getDiaryDetail(diaryId, memberId);
-
-        return ResponseEntity.ok(responseDto);
+        return ResponseEntity.ok(diaryService.getDiaryDetailByDate(date, memberId));
     }
+
 
 
     //월간 다이어리 조회
