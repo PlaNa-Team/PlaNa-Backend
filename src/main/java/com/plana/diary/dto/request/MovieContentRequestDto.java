@@ -18,7 +18,7 @@ public class MovieContentRequestDto {
     private String director;
     private String actors;
     private String genre;
-    private boolean rewatch;
+    private Boolean rewatch;
     private Integer rating;
     private String comment;
     private LocalDate releaseDate;

@@ -75,7 +75,7 @@ public class DiaryServiceImpl implements DiaryService {
                         .endDate(bookDto.getEndDate())
                         .rating(bookDto.getRating() != null ? bookDto.getRating() : 0)
                         .comment(bookDto.getComment() != null ? bookDto.getComment() : "")
-                        .rewatch(bookDto.isRewatch())
+                        .rewatch(Boolean.TRUE.equals(bookDto.getRewatch()))
                         .build();
 
                 bookRepository.save(book);
@@ -89,7 +89,7 @@ public class DiaryServiceImpl implements DiaryService {
                         .director(movieDto.getDirector() != null ? movieDto.getDirector() : "")
                         .actors(movieDto.getActors() != null ? movieDto.getActors() : "")
                         .genre(movieDto.getGenre() != null ? movieDto.getGenre() : "")
-                        .rewatch(movieDto.isRewatch())
+                        .rewatch(Boolean.TRUE.equals(movieDto.getRewatch()))
                         .rating(movieDto.getRating() != null ? movieDto.getRating() : 0)
                         .comment(movieDto.getComment() != null ? movieDto.getComment() : "")
                         .releaseDate(movieDto.getReleaseDate())
@@ -249,6 +249,7 @@ public class DiaryServiceImpl implements DiaryService {
                         .endDate(book.getEndDate())
                         .rating(book.getRating())
                         .comment(book.getComment())
+                        .rewatch(book.isRewatch())
                         .build();
             }
             case MOVIE -> {
@@ -262,6 +263,7 @@ public class DiaryServiceImpl implements DiaryService {
                         .rewatch(movie.isRewatch())
                         .rating(movie.getRating())
                         .comment(movie.getComment())
+                        .releaseDate(movie.getReleaseDate())
                         .build();
             }
         };
@@ -340,6 +342,7 @@ public class DiaryServiceImpl implements DiaryService {
 
     // 다이어리 삭제
     @Override
+    @Transactional
     public void deleteDiary(Long diaryId, Long memberId){
         // 다이어리 대상 조회
         Diary diary = diaryRepository.findById(diaryId)
@@ -419,6 +422,7 @@ public class DiaryServiceImpl implements DiaryService {
                     }
                     if (dto.getStartDate() != null) book.setStartDate(dto.getStartDate());
                     if (dto.getEndDate() != null) book.setEndDate(dto.getEndDate());
+                    if (dto.getRewatch() != null) book.setRewatch(dto.getRewatch());
                 }
                 case MOVIE -> {
                     Movie movie = movieRepository.findByDiary_Id(diaryId)
@@ -430,7 +434,8 @@ public class DiaryServiceImpl implements DiaryService {
                     if (dto.getGenre() != null) movie.setGenre(dto.getGenre());
                     if (dto.getRating() != null) movie.setRating(dto.getRating());
                     if (dto.getComment() != null) movie.setComment(dto.getComment());
-                    movie.setRewatch(dto.isRewatch());
+                    if (dto.getRewatch() != null) movie.setRewatch(dto.getRewatch());
+                    if (dto.getReleaseDate() != null) movie.setReleaseDate(dto.getReleaseDate());
                 }
             }
         }

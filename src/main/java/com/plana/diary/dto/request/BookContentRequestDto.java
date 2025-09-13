@@ -21,7 +21,7 @@ public class BookContentRequestDto {
     private String genre;
     private Integer rating;
     private String comment;
-    private boolean rewatch;
+    private Boolean rewatch;
     private LocalDate startDate;
     private LocalDate endDate;
 }
