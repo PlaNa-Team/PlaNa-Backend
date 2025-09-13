@@ -1,21 +1,17 @@
 package com.plana.auth.dto;
 
-import com.plana.auth.enums.VerificationPurpose;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+// 현재 비밀번호 확인
 @Data
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 @Builder
-public class EmailSendRequestDto {
+public class PasswordConfirmRequestDto {
     @NotBlank
-    @Email
-    String email;
-
-    private VerificationPurpose purpose;
+    private String currentPassword;
 }

@@ -1,4 +1,4 @@
-package com.plana.calendar.service.impl;
+package com.plana.calendar.service;
 
 import com.plana.auth.entity.Member;
 import com.plana.auth.repository.MemberRepository;
@@ -6,7 +6,6 @@ import com.plana.calendar.dto.request.CategoryRequestDto;
 import com.plana.calendar.dto.response.CategoryResponseDto;
 import com.plana.calendar.entity.Category;
 import com.plana.calendar.repository.CategoryRepository;
-import com.plana.calendar.service.CategoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

@@ -73,15 +73,15 @@ public class SecurityConfig {
                     "/api/members",             // POST: 회원가입, GET: 이메일 중복 확인
                     "/api/members/check-id",    // 아이디 중복 확인
                     "/api/auth/email/verification-code", // 이메일 인증번호 전송
-                        "/api/auth/email/verify", // 이메일 인증번호 확인
+                    "/api/auth/email/verify", // 이메일 인증번호 확인
                     "/api/auth/signup",         // 일반 회원가입 API
                     "/api/auth/login",          // 일반 로그인 API
                     "/api/auth/social-login",   // OAuth2 로그인 엔드포인트
                     "/api/auth/social-signup",  // 소셜 회원가입
                     "/api/auth/reset/verify",   // 인증 코드 확인
                     "/api/auth/id-recovery",    // 아이디 찾기
-                    "/api/auth/password-reset/verify", // 비밀번호 찾기
-                    "/api/auth/refresh", // 토큰 갱신
+                    "/api/auth/refresh",        // 토큰 갱신
+                    "/api/auth/password/reset", // 비밀번호 재설정
 
                     "/error",                 // 에러 페이지
                     "/v3/api-docs/**",        // Swaager가 자동 생성하는 API 명세 JSON 데이터가 위치하는 기본 URL 경로
@@ -139,8 +139,12 @@ public class SecurityConfig {
             "http://localhost",          // 포트 없는 localhost
             "http://localhost:443",      // HTTPS 포트
             "https://localhost:443",     // HTTPS
-            "http://hoonee-math.info",   // 프로덕션 도메인 (HTTP)
-            "https://hoonee-math.info"   // 프로덕션 도메인 (HTTPS)
+            "http://hoonee-math.info",   // 기존 프로덕션 도메인 (HTTP)
+            "https://hoonee-math.info",  // 기존 프로덕션 도메인 (HTTPS)
+            "http://plana.hoonee-math.info",   // 플래너 프로덕션 도메인 (HTTP)
+            "https://plana.hoonee-math.info",   // 플래너 프로덕션 도메인 (HTTPS)
+            "http://plana-frontend-silk.vercel.app",
+            "https://plana-frontend-silk.vercel.app"
         ));
         
         // 허용할 HTTP 메서드

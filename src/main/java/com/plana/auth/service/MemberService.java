@@ -29,6 +29,10 @@ public class MemberService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final StringRedisTemplate redis;
+    private final EmailVerificationService emailVerificationService;
+
+    private String okKey(Long memberId){ return "pwd:change:ok:" + memberId; }
+    private static final Duration TTL = Duration.ofMinutes(5); // 5분 이내 변경
 
     @Value("${jwt.refresh-token-validity}")
     private long refreshTokenValidityMs;
@@ -178,6 +182,27 @@ public class MemberService {
     }
 
     /**
+     * 본인 정보 조회
+     * @param memberId 조회할 회원의 ID
+     * @return MemberInfoResponseDto 회원의 상세 정보(id, loginId, name, email, nickname, provider, createdAt)
+     * @throws IllegalArgumentException 해당 ID의 회원이 존재하지 않을 경우 발생
+     */
+    public MemberInfoResponseDto getMyInfo(Long memberId) {
+        Member m = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("회원이 존재하지 않습니다."));
+
+        return new MemberInfoResponseDto(
+                m.getId(),
+                m.getLoginId(),
+                m.getName(),
+                m.getEmail(),
+                m.getNickname(),
+                m.getProvider().name(),
+                m.getCreatedAt()
+        );
+    }
+
+    /**
      * 이메일 중복 검사
      * @param email 검사할 이메일
      * @return 중복이면 true, 사용 가능하면 false
@@ -230,4 +255,95 @@ public class MemberService {
         // 토큰/세션 정리 (로그인에 redis 적용 시)
         // revokeTokensFor(m.getId());
     }
+
+    /**
+     * 사용자 닉네임 변경
+     * @param memberId 사용자 고유번호
+     * @param newNickname 변경한 닉네임
+     * @throws IllegalArgumentException 사용자 없음
+     */
+    @Transactional
+    public void updateNickname(Long memberId, String newNickname) {
+        Member m = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다"));
+
+        if (m.getNickname().equals(newNickname)) {
+            throw new IllegalArgumentException("기존 닉네임과 동일한 값으로는 변경할 수 없습니다");
+        }
+
+        m.setNickname(newNickname);
+    }
+
+    /**
+     * 비밀번호 찾기 : 비밀번호 재설정
+     * @param req 비밀번호 재설정 요청 DTO (이메일, 새 비밀번호, 확인 비밀번호 포함)
+     * @throws  IllegalArgumentException 인증 실패, 회원 미존재, 비밀번호 불일치 등의 경우 발생
+     */
+    @Transactional
+    public void resetPassword(PasswordResetRequestDto req) {
+        String email = req.getEmail().trim().toLowerCase();
+
+        if (!emailVerificationService.isVerified(email)) {
+            throw new UnauthorizedException("이메일 인증이 필요합니다.");
+        }
+
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("회원이 존재하지 않습니다."));
+
+        if (!req.getNewPassword().equals(req.getConfirmPassword())) {
+            throw new IllegalArgumentException("비밀번호 확인이 일치하지 않습니다.");
+        }
+
+        member.setPassword(passwordEncoder.encode(req.getNewPassword()));
+        emailVerificationService.invalidateVerified(email);
+    }
+
+    /**
+     * 현재 비밀번호 확인
+     *
+     * @param memberId  비밀번호를 확인할 회원 ID
+     * @param currentPassword 사용자가 입력한 현재 비밀번호
+     * @throws IllegalArgumentException 회원이 존재하지 않거나 비밀번호가 일치하지 않는 경우 발생
+     */
+    @Transactional(readOnly = true)
+    public void confirmCurrentPassword(Long memberId, String currentPassword) {
+        Member m = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("회원이 존재하지 않습니다."));
+        if (!passwordEncoder.matches(currentPassword, m.getPassword())) {
+            throw new IllegalArgumentException("현재 비밀번호가 일치하지 않습니다.");
+        }
+        redis.opsForValue().set(okKey(memberId), "true", TTL);
+    }
+
+    /**
+     * 새 비밀번호 변경
+     *
+     * @param memberId  비밀번호를 변경할 회원 ID
+     * @param newPassword 새 비밀번호
+     * @param confirmPassword 확인용 비밀번호
+     * @throws UnauthorizedException 현재 비밀번호 확인 절차를 거치지 않은 경우 발생
+     * @throws IllegalArgumentException 회원이 존재하지 않거나, 새 비밀번호 검증에 실패한 경우 발생
+     */
+    @Transactional
+    public void changePassword(Long memberId, String newPassword, String confirmPassword) {
+        String flag = redis.opsForValue().get(okKey(memberId));
+        if (!"true".equals(flag)) {
+            throw new UnauthorizedException("비밀번호 변경을 위해서는 먼저 현재 비밀번호 확인이 필요합니다.");
+        }
+
+        Member m = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("회원이 존재하지 않습니다."));
+
+        if (!newPassword.equals(confirmPassword)) {
+            throw new IllegalArgumentException("비밀번호 확인이 일치하지 않습니다.");
+        }
+        if (passwordEncoder.matches(newPassword, m.getPassword())) {
+            throw new IllegalArgumentException("이전 비밀번호와 동일한 비밀번호는 사용할 수 없습니다.");
+        }
+
+        m.setPassword(passwordEncoder.encode(newPassword));
+        redis.delete(okKey(memberId)); // 재사용 방지
+    }
+
+
 }

@@ -1,6 +1,5 @@
 package com.plana.auth.dto;
 
-import com.plana.auth.enums.VerificationPurpose;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
@@ -12,10 +11,14 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class EmailSendRequestDto {
+public class PasswordResetRequestDto {
     @NotBlank
     @Email
-    String email;
+    private String email;
 
-    private VerificationPurpose purpose;
+    @NotBlank
+    private String newPassword;
+
+    @NotBlank
+    private String confirmPassword;
 }

@@ -165,7 +165,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 path.equals("/api/auth/social-signup") ||       // 소셜 회원가입
                 path.equals("/api/auth/reset/verify") ||        // 인증 코드 확인
                 path.equals("/api/auth/id-recovery") ||         // 아이디 찾기
-                path.equals("/api/auth/password-reset/verify") || // 비밀번호 찾기
+                path.equals("/api/auth/password/reset") ||      // 비밀번호 재설정
 
                 path.equals("/error") ||                        // 에러 페이지
                 path.startsWith("/v3/api-docs/") ||             // Swaager가 자동 생성하는 API 명세 JSON 데이터가 위치하는 기본 URL 경로

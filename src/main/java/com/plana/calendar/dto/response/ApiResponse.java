@@ -26,19 +26,25 @@ public class ApiResponse<T> {
     private int status;
     private String message;
     private T data;
+    private String error;
     
     // 성공 응답 생성 메서드
     public static <T> ApiResponse<T> success(String message, T data) {
-        return new ApiResponse<>(200, message, data);
+        return new ApiResponse<>(200, message, data, null);
     }
     
     // 생성 성공 응답 생성 메서드
     public static <T> ApiResponse<T> created(String message, T data) {
-        return new ApiResponse<>(201, message, data);
+        return new ApiResponse<>(201, message, data, null);
     }
     
     // 오류 응답 생성 메서드
     public static <T> ApiResponse<T> error(int status, String message) {
-        return new ApiResponse<>(status, message, null);
+        return new ApiResponse<>(status, message, null, null);
+    }
+    
+    // 오류 응답 생성 메서드 (error 타입 포함)
+    public static <T> ApiResponse<T> error(int status, String message, String errorType) {
+        return new ApiResponse<>(status, message, null, errorType);
     }
 }
