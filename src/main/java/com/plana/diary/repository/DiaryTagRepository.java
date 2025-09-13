@@ -36,4 +36,8 @@ public interface DiaryTagRepository extends JpaRepository<DiaryTag, Long> {
     """)
     int rejectAcceptedTagsOnDate(@Param("memberId") Long memberId,
                                  @Param("diaryDate") LocalDate diaryDate);
+
+
+    List<DiaryTag> findByDiary_IdInAndMember_IdAndTagStatus(
+            List<Long> diaryIds, Long memberId, TagStatus tagStatus);
 }

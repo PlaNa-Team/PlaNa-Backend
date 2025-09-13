@@ -43,6 +43,7 @@ public class DiaryTag {
     @Column(length = 100)
     private String tagText;
 
+    //다이어리 승인한 시각
     @Column
     private LocalDateTime acceptedAt;
 }

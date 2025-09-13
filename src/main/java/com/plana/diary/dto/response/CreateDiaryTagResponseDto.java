@@ -10,7 +10,10 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 public class CreateDiaryTagResponseDto {
+    private Long id;
     private Long memberId;
+    private String loginId;
+    private String memberNickname;
     private String tagText;
     private TagStatus tagStatus;
 }
