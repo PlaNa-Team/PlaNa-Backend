@@ -4,6 +4,7 @@ import com.plana.calendar.dto.request.ScheduleCreateRequestDto;
 import com.plana.calendar.dto.request.ScheduleUpdateRequestDto;
 import com.plana.calendar.dto.response.ScheduleDetailResponseDto;
 import com.plana.calendar.dto.response.ScheduleMonthlyItemDto;
+import com.plana.calendar.dto.response.ScheduleSearchResponseDto;
 
 import java.util.List;
 
@@ -53,5 +54,7 @@ public interface CalendarService {
      * @param memberId 삭제하는 사용자 ID (권한 체크용)
      */
     void deleteSchedule(Long scheduleId, Long memberId);
+
+    List<ScheduleSearchResponseDto> search(Long memberId, String keyword);
     
 }
