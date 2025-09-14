@@ -134,12 +134,15 @@ public class MemoServiceImpl implements MemoService {
         
         // 부분 업데이트
         boolean isUpdated = false;
-        
+        // System.out.println("업데이트할 내용: " + updateDto.toString() + ", 내용이 비어있는치 체크: " + updateDto.getContent().trim().isEmpty());
         if (updateDto.getContent() != null && !updateDto.getContent().trim().isEmpty()) {
             if (updateDto.getContent().length() > 255) {
                 throw new IllegalArgumentException("메모 내용은 255자를 초과할 수 없습니다.");
             }
             memo.setContent(updateDto.getContent().trim());
+            isUpdated = true;
+        } else if (updateDto.getContent().trim().isEmpty()) {
+            memo.setContent("");
             isUpdated = true;
         }
         
