@@ -292,26 +292,6 @@ public class DiaryServiceImpl implements DiaryService {
                     .build();
         }
 
-        // 1) 표시 날짜 맵: 공유 수락 글 → acceptedAt.date
-        List<Long> ids = diaries.stream().map(Diary::getId).toList();
-        Map<Long, LocalDate> displayDateByDiaryId = new HashMap<>();
-        diaryTagRepository
-                .findByDiary_IdInAndMember_IdAndTagStatus(ids, memberId, TagStatus.ACCEPTED)
-                .forEach(t -> {
-                    if (t.getAcceptedAt() != null) {
-                        displayDateByDiaryId.put(t.getDiary().getId(), t.getAcceptedAt().toLocalDate());
-                    }
-                });
-
-    // 2) 나머지(내 글 등) → updatedAt(없으면 createdAt).date
-        for (Diary d : diaries) {
-            displayDateByDiaryId.putIfAbsent(
-                    d.getId(),
-                    (d.getUpdatedAt() != null ? d.getUpdatedAt() : d.getCreatedAt()).toLocalDate()
-            );
-        }
-
-
         //타입별 diaryId 모으기
         List<Long> dailyIds = new ArrayList<>();
         List<Long> bookIds = new ArrayList<>();
@@ -345,7 +325,7 @@ public class DiaryServiceImpl implements DiaryService {
         List<DiaryMonthlyItemDto> items = diaries.stream()
                 .map( d -> DiaryMonthlyItemDto.builder()
                         .id(d.getId())
-                        .diaryDate(displayDateByDiaryId.get(d.getId()))
+                        .diaryDate(d.getDiaryDate())
                         .type(d.getType().name())
                         .imageUrl(d.getImageUrl())
                         .title(titleByDiaryId.getOrDefault(d.getId(), "")) // getOrDefault는 키에 해당하는 값이 있으면 그 값을 반환하고, 없으면 기본값을 반환
