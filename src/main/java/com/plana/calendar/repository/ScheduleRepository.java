@@ -48,4 +48,16 @@ public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
     // 사용자별 일정 개수 (성능 확인용)
     @Query("SELECT COUNT(s) FROM Schedule s WHERE s.member.id = :memberId")
     Long countByMemberId(@Param("memberId") Long memberId);
+
+    @Query("""
+    select s
+    from Schedule s
+    where s.isDeleted = false
+      and s.member.id = :memberId
+      and ( lower(s.title) like lower(concat('%', :keyword, '%'))
+            or lower(s.description) like lower(concat('%', :keyword, '%')) )
+    order by s.startAt desc
+    """)
+    List<Schedule> searchByKeyword(@Param("memberId") Long memberId,
+                                   @Param("keyword") String keyword);
 }

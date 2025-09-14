@@ -18,4 +18,5 @@ public class BookContentResponseDto implements DiaryContentResponseDto {
     private LocalDate endDate;
     private Integer rating;
     private String comment;
+    private boolean rewatch;
 }

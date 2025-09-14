@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
+
 @Getter
 @Setter
 @AllArgsConstructor
@@ -16,7 +18,8 @@ public class MovieContentRequestDto {
     private String director;
     private String actors;
     private String genre;
-    private boolean rewatch;
+    private Boolean rewatch;
     private Integer rating;
     private String comment;
+    private LocalDate releaseDate;
 }

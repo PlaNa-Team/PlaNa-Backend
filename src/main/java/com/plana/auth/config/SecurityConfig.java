@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
@@ -56,6 +57,10 @@ public class SecurityConfig {
             
             // HTTP 요청 인증 설정
             .authorizeHttpRequests(auth -> auth
+
+                .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
+                .requestMatchers(HttpMethod.HEAD, "/uploads/**").permitAll()
+                .requestMatchers(HttpMethod.OPTIONS, "/uploads/**").permitAll()
                 // 인증 없이 접근 가능한 엔드포인트
                 .requestMatchers(
                     "/",
@@ -81,8 +86,8 @@ public class SecurityConfig {
                     "/error",                 // 에러 페이지
                     "/v3/api-docs/**",        // Swaager가 자동 생성하는 API 명세 JSON 데이터가 위치하는 기본 URL 경로
                     "/swagger-ui/**",         // Swagger UI관련 정적리소스가 위치하는 경로
-                    "/swagger-ui.html"        // Swagger UI를 열기 위한 메인 HTML 페이지 URL
-
+                    "/swagger-ui.html",      // Swagger UI를 열기 위한 메인 HTML 페이지 URL
+                    "/api/files/upload"
                 ).permitAll()
                 
                 // 관리자만 접근 가능한 엔드포인트
@@ -137,7 +142,9 @@ public class SecurityConfig {
             "http://hoonee-math.info",   // 기존 프로덕션 도메인 (HTTP)
             "https://hoonee-math.info",  // 기존 프로덕션 도메인 (HTTPS)
             "http://plana.hoonee-math.info",   // 플래너 프로덕션 도메인 (HTTP)
-            "https://plana.hoonee-math.info"   // 플래너 프로덕션 도메인 (HTTPS)
+            "https://plana.hoonee-math.info",   // 플래너 프로덕션 도메인 (HTTPS)
+            "http://plana-frontend-silk.vercel.app",
+            "https://plana-frontend-silk.vercel.app"
         ));
         
         // 허용할 HTTP 메서드

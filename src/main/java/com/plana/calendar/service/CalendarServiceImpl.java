@@ -268,4 +268,17 @@ public class CalendarServiceImpl implements CalendarService {
                 alarmDtos
         );
     }
+
+    /**
+     *
+     * @param memberId
+     * @param keyword
+     * @return
+     */
+    public List<ScheduleSearchResponseDto> search(Long memberId, String keyword) {
+        return scheduleRepository.searchByKeyword(memberId, keyword)
+                .stream()
+                .map(ScheduleSearchResponseDto::from)
+                .toList();
+    }
 }

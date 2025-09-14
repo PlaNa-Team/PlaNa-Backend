@@ -5,6 +5,8 @@ import com.plana.diary.enums.TagStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Getter
 @Setter
@@ -40,4 +42,8 @@ public class DiaryTag {
     //자동완성 없이 사용자가 직접 이력한 경우 저장
     @Column(length = 100)
     private String tagText;
+
+    //다이어리 승인한 시각
+    @Column
+    private LocalDateTime acceptedAt;
 }

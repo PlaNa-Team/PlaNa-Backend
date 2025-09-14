@@ -2,6 +2,8 @@ package com.plana.diary.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 @Entity
 @Getter
@@ -17,6 +19,7 @@ public class Daily {
     //Diary와 1대1 관계
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "diary_id" , nullable = false, unique = true)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Diary diary;
 
     @Column(nullable = false, length = 50)

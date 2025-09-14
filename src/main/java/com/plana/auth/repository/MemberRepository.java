@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -42,4 +43,18 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
     @Query(value = "SELECT * FROM member WHERE email = :email", nativeQuery = true)
     Optional<Member> findByEmailIncludingDeleted(@Param("email") String email);
+
+    @Query("""
+        select m
+        from Member m
+        where m.loginId is not null
+          and lower(m.loginId) like lower(concat('%', :keyword, '%'))
+          and m.id <> :excludeId
+        """)
+    List<Member> searchByLoginId(@Param("keyword") String keyword,
+                                 @Param("excludeId") Long excludeId);
+
+    @Query("select count(m) from Member m where m.loginId is not null")
+    long countMembersWithLoginId();
+
 }

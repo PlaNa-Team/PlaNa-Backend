@@ -16,6 +16,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .allowedOrigins( "http://localhost:5173","http://localhost:5174",
                         "http://localhost:80","http://localhost","http://localhost:443",
                         "http://hoonee-math.info","https://hoonee-math.info",
+                        "http://plana-frontend-silk.vercel.app","https://plana-frontend-silk.vercel.app",
                         "http://plana.hoonee-math.info","https://plana.hoonee-math.info")// 개발 서버 및 프로덕션 도메인
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "OPTIONS")
                 .allowedHeaders("*")
@@ -25,8 +26,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // /uploads/** 요청 → 프로젝트 루트/uploads/ 실제 파일 매핑
+        // 로컬 디스크의 uploads 폴더를 /uploads/** 로 노출
         registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:uploads/");
+                .addResourceLocations("file:uploads/")   // 프로젝트 루트/uploads
+                .setCachePeriod(3600);
     }
 }

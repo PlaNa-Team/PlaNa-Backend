@@ -3,10 +3,7 @@ package com.plana.calendar.controller;
 import com.plana.auth.dto.AuthenticatedMemberDto;
 import com.plana.calendar.dto.request.ScheduleCreateRequestDto;
 import com.plana.calendar.dto.request.ScheduleUpdateRequestDto;
-import com.plana.calendar.dto.response.ApiResponse;
-import com.plana.calendar.dto.response.ScheduleMonthlyItemDto;
-import com.plana.calendar.dto.response.ScheduleMonthlyResponseDto;
-import com.plana.calendar.dto.response.ScheduleDetailResponseDto;
+import com.plana.calendar.dto.response.*;
 import com.plana.calendar.service.CalendarService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 캘린더 관련 REST API Controller
@@ -216,5 +214,43 @@ public class CalendarController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error(500, "일정 삭제 중 오류가 발생했습니다."));
         }
+    }
+
+    @GetMapping(params = "keyword")
+    public ResponseEntity<?> searchCalendars(
+            @AuthenticationPrincipal AuthenticatedMemberDto auth,
+            @RequestParam String keyword
+    ) {
+        if (auth == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                    "status", 401,
+                    "error", "UNAUTHORIZED",
+                    "message", "로그인이 필요합니다."
+            ));
+        }
+
+        String q = keyword == null ? "" : keyword.trim();
+        if (q.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "status", 400,
+                    "error", "VALIDATION_ERROR",
+                    "message", "검색어를 입력해주세요.",
+                    "details", List.of(
+                            Map.of("field", "keyword", "message", "검색 키워드는 공백일 수 없습니다.")
+                    )
+            ));
+        }
+
+        List<ScheduleSearchResponseDto> list = calendarService.search(auth.getId(), q);
+        String msg = list.isEmpty() ? "검색된 일정이 없습니다." : "일정 검색 성공";
+
+//        log.info("keyword = {}", keyword);
+
+
+        return ResponseEntity.ok(Map.of(
+                "status", 200,
+                "message", msg,
+                "data", list
+        ));
     }
 }

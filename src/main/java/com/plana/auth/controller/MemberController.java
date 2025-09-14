@@ -7,10 +7,12 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -121,6 +123,43 @@ public class MemberController {
                 "status", 200,
                 "message", "비밀번호가 변경되었습니다.",
                 "timestamp", System.currentTimeMillis()
+        ));
+    }
+
+    //친구 검색
+    @GetMapping(params = "keyword")
+    public ResponseEntity<?> searchMembers(
+            @AuthenticationPrincipal AuthenticatedMemberDto auth,
+            @RequestParam String keyword
+    ) {
+        if (auth == null) throw new UnauthorizedException("인증이 필요합니다");
+
+        String q = keyword == null ? "" : keyword.trim();
+        if (q.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "status", 400,
+                    "code", "INVALID_KEYWORD",
+                    "message", "keyword를 1자 이상 입력하세요."
+            ));
+        }
+
+        if (memberService.countMembersWithLoginId() == 0) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                    "status", 409,
+                    "code", "SEARCH_NOT_READY",
+                    "message", "검색이 불가능한 상태입니다. loginId가 등록된 회원이 없습니다.",
+                    "data", List.of()
+            ));
+        }
+
+        var data = memberService.searchMembers(q, auth.getId());
+        String msg = data.isEmpty() ? "검색 결과가 없습니다." : "친구 검색 결과입니다.";
+
+        return ResponseEntity.ok(Map.of(
+                "status", 200,
+                "message", msg,
+                "count", data.size(),
+                "data", data
         ));
     }
 }

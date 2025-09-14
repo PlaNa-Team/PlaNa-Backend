@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
+import java.util.List;
 
 /**
  * 일반 회원가입/로그인 비즈니스 로직 서비스
@@ -349,5 +350,26 @@ public class MemberService {
         redis.delete(okKey(memberId)); // 재사용 방지
     }
 
+    /**
+     *
+     * @param keyword
+     * @param excludeId
+     * @return
+     */
+
+    public List<MemberSearchResponseDto> searchMembers(String keyword, Long excludeId) {
+        return memberRepository.searchByLoginId(keyword, excludeId)
+                .stream()
+                .map(m -> new MemberSearchResponseDto(
+                        m.getId(),
+                        m.getLoginId()
+                ))
+                .toList();
+    }
+
+
+    public long countMembersWithLoginId() {
+        return memberRepository.countMembersWithLoginId();
+    }
 
 }
