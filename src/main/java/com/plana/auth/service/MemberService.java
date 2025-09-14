@@ -346,6 +346,13 @@ public class MemberService {
         redis.delete(okKey(memberId)); // 재사용 방지
     }
 
+    /**
+     *
+     * @param keyword
+     * @param excludeId
+     * @return
+     */
+
     public List<MemberSearchResponseDto> searchMembers(String keyword, Long excludeId) {
         return memberRepository.searchByLoginId(keyword, excludeId)
                 .stream()
