@@ -42,6 +42,7 @@ public interface DiaryRepository extends JpaRepository<Diary, Long> {
             end as activity_ts,
         
             row_number() over (
+            partition by date(d.diary_date)
               order by
                 case
                   when t.id is not null
