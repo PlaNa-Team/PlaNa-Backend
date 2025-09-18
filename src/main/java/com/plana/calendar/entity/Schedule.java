@@ -32,7 +32,7 @@ public class Schedule {
     
     // 카테고리 선택(FK: category_id)
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id", nullable = false)
+    @JoinColumn(name = "category_id")
     private Category category;
     
     // 일정 제목

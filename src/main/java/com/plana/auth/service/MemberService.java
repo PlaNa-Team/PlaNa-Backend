@@ -291,6 +291,10 @@ public class MemberService {
         Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("회원이 존재하지 않습니다."));
 
+        if (passwordEncoder.matches(req.getNewPassword(), member.getPassword())) {
+            throw new IllegalArgumentException("이전 비밀번호와 동일한 비밀번호는 사용할 수 없습니다.");
+        }
+
         if (!req.getNewPassword().equals(req.getConfirmPassword())) {
             throw new IllegalArgumentException("비밀번호 확인이 일치하지 않습니다.");
         }

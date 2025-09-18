@@ -1,9 +1,6 @@
 package com.plana.calendar.dto.request;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 /**
  * 메모 수정 요청 DTO
@@ -23,6 +20,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@ToString
 public class MemoUpdateRequestDto {
     private String content;
     private String type;
