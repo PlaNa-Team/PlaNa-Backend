@@ -93,9 +93,12 @@ public class CalendarServiceImpl implements CalendarService {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
 
-        // Category 조회
-        Category category = categoryRepository.findByIdAndMemberId(createDto.getCategoryId(), memberId)
-                .orElseThrow(() -> new RuntimeException("카테고리를 찾을 수 없습니다."));
+        // Category 조회 (categoryId가 있을 때만)
+        Category category = null;
+        if (createDto.getCategoryId() != null) {
+            category = categoryRepository.findByIdAndMemberId(createDto.getCategoryId(), memberId)
+                    .orElseThrow(() -> new RuntimeException("카테고리를 찾을 수 없습니다."));
+        }
 
         // Schedule 생성
         Schedule schedule = Schedule.builder()
@@ -240,12 +243,15 @@ public class CalendarServiceImpl implements CalendarService {
      * 상세 조회용 DTO 변환
      */
     private ScheduleDetailResponseDto convertToDetailResponseDto(Schedule schedule) {
-        // 카테고리 정보
-        CategoryResponseDto categoryDto = new CategoryResponseDto(
-                schedule.getCategory().getId(),
-                schedule.getCategory().getName(),
-                schedule.getCategory().getColor()
-        );
+        // 카테고리 정보 (category가 null일 수 있음)
+        CategoryResponseDto categoryDto = null;
+        if (schedule.getCategory() != null) {
+            categoryDto = new CategoryResponseDto(
+                    schedule.getCategory().getId(),
+                    schedule.getCategory().getName(),
+                    schedule.getCategory().getColor()
+            );
+        }
 
         // 알림 정보
         List<ScheduleAlarmResponseDto> alarmDtos = scheduleAlarmRepository.findByScheduleId(schedule.getId());

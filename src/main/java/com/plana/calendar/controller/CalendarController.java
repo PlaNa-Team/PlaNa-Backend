@@ -141,8 +141,14 @@ public class CalendarController {
                 
         } catch (Exception e) {
             log.error("일정 생성 중 오류 발생: {}", e.getMessage(), e);
+
+            if (e.getMessage().contains("찾을 수 없습니다")) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.error(404, e.getMessage()));
+            }
+
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error(500, "일정 생성 중 오류가 발생했습니다."));
+                .body(ApiResponse.error(500, e.getMessage()));
         }
     }
 
