@@ -1,243 +1,222 @@
-# PlaNa Backend - NotificationController 알림 기능 분석 및 구현 계획
+# PlaNa Backend - NotificationController 알림 기능 구현 완료 보고서
 
-## 1. 사전 분석 결과
+## 📋 1. 최종 구현 결과 요약
 
-### 1.1 엔티티 분석 결과
+### ✅ 완료된 기능
+- **통합 알림 시스템**: 다이어리 태그 + 스케줄 알림 통합 관리
+- **WebSocket 실시간 알림**: JWT 인증 기반 개인별 실시간 메시징
+- **REST API**: 알림 CRUD 및 상태 관리
+- **스케줄러**: 예정된 알림 자동 발송
+- **세션 관리**: 온라인 사용자 추적 및 최적화된 알림 발송
 
-#### Notification 엔티티 (통합 알림 설계)
-```java
-// 위치: com.plana.notification.entity.Notification
-- scheduleAlarm: ScheduleAlarm 참조 (일정 알림)
-- diaryTag: DiaryTag 참조 (다이어리 태그 알림)
-- member: 알림 받을 사용자
-- type: 알림 유형 ("TAG" / "ALARM")
-- time: 실제 알림 발생 시각
-- isRead: 읽음 여부
+### 🏗️ 아키텍처 개요
+```
+[프론트엔드]
+    ↕ WebSocket (/ws) + JWT
+    ↕ REST API (/api/notifications)
+[NotificationController]
+    ↓
+[NotificationService] ← [WebSocketSessionManager]
+    ↓                    ↓
+[NotificationRepository] [메모리 세션 관리]
+    ↓
+[Notification 엔티티] (isSent + isRead 분리)
 ```
 
-#### Schedule 관련 엔티티
+## 🔍 2. 엔티티 설계 (최종)
+
+### 2.1 Notification 엔티티 (핵심 변경사항)
 ```java
-// Schedule: 일정 메인 엔티티
-- startAt: 일정 시작 시간
-- recurrenceRule: 반복 규칙 (RFC 5545 RRule)
-- recurrenceUntil: 반복 종료일
-
-// ScheduleAlarm: 알림 설정
-- notifyBeforeVal: 알림 시간 숫자 (예: 5, 30)
-- notifyUnit: 시간 단위 (MIN, HOUR, DAY)
-```
-
-#### Diary 관련 엔티티
-```java
-// DiaryTag: 다이어리 태그
-- diary: 연결된 다이어리
-- member: 태그된 사용자 (nullable - 비회원 태그 가능)
-- tagStatus: 태그 상태 (WRITER, PENDING, ACCEPTED, REJECTED, DELETED)
-- tagText: 직접 입력 태그 텍스트
-```
-
-### 1.2 기존 비즈니스 로직 분석
-
-#### Diary 태그 처리 로직 (DiaryServiceImpl:101-156)
-- 자동 상태 결정: 작성자 본인 = WRITER, 다른 사용자 = PENDING
-- 두 가지 태그 타입: 회원 태그 vs 텍스트 태그
-- 중복 방지: 같은 날짜에 하나의 다이어리만 수락 가능
-- 태그 상태 변경: 태그된 본인만 ACCEPTED/REJECTED 변경 가능
-
-#### Schedule 알림 처리 로직 (CalendarServiceImpl:120-130)
-- 다중 알림: 하나의 일정에 여러 알림 설정 가능
-- 상대적 시간: "5분전", "1시간전" 등으로 저장
-- 반복 일정: RecurrenceService로 인스턴스 동적 생성
-
-### 1.3 현재 구현 상태
-
-#### 완전 구현된 기능
-1. 다이어리 태그 시스템: 생성, 수락/거절, 상태 관리
-2. 스케줄 알림 설정: ScheduleAlarm 엔티티 생성/저장
-3. 반복 일정 처리: RRule 기반 인스턴스 생성
-4. 통합 알림 엔티티: Notification 설계 완료
-
-#### 미구현된 기능
-1. 실제 알림 발송 시스템: Notification 데이터 생성 로직 없음
-2. WebSocket 통신: 의존성 및 설정 완전 없음
-3. 알림 스케줄러: 배치 작업 없음
-4. NotificationController: 컨트롤러 완전 미구현
-
-## 2. 구현 계획
-
-### 2.1 통합 알림 시스템 설계 분석
-
-#### 통합 알림의 핵심 요구사항
-1. 다이어리 태그 알림
-   - 친구가 다이어리에 태그 시 즉시 알림
-   - 알림 내용: 작성자 정보, 다이어리 정보
-   - 수락/거절 가능한 알림
-
-2. 스케줄 알림
-   - 설정된 시간(notifyBeforeVal + notifyUnit)에 따라 알림
-   - 반복 일정 고려 필요
-   - 알림 내용: 스케줄 정보
-
-#### WebSocket vs HTTP 폴링 검토
-WebSocket 장점:
-- 실시간 양방향 통신
-- 서버 푸시 가능
-- 연결 유지로 즉시 알림
-
-HTTP 폴링 단점:
-- 지속적인 요청으로 서버 부하
-- 실시간성 떨어짐
-- 배터리 소모
-
-결론: WebSocket 방식 채택
-
-### 2.2 구현 단계별 계획
-
-#### Phase 1: WebSocket 기반 실시간 알림 시스템 구축
-
-1.1 의존성 추가 (pom.xml)
-```xml
-<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-websocket</artifactId>
-</dependency>
-```
-
-1.2 WebSocket 설정
-```java
-// WebSocketConfig: STOMP 기반 메시징 설정
-- /app 접두사: 클라이언트 → 서버 메시지
-- /topic 접두사: 서버 → 클라이언트 브로드캐스트
-- /user 접두사: 개인별 알림
-```
-
-1.3 NotificationController 구현
-```java
-// 기능:
-- GET /api/notifications: 알림 목록 조회 (페이징)
-- PUT /api/notifications/{id}/read: 알림 읽음 처리
-- WebSocket /app/connect: 클라이언트 연결
-```
-
-1.4 NotificationService 구현
-```java
-// 기능:
-- createDiaryTagNotification(): 다이어리 태그 알림 생성
-- createScheduleNotification(): 스케줄 알림 생성
-- sendRealTimeNotification(): WebSocket으로 실시간 발송
-- markAsRead(): 알림 읽음 처리
-```
-
-#### Phase 2: 다이어리 태그 알림 통합
-
-2.1 DiaryServiceImpl 수정
-- createDiary() 메서드에서 친구 태그 시 알림 생성
-- updateDiaryTagStatus() 메서드에서 수락/거절 시 알림 발송
-
-2.2 다이어리 태그 알림 로직
-```java
-// DiaryTag 생성 시 (tagStatus = PENDING인 경우)
-if (tagDto.getMemberId() != null && !writer.getId().equals(taggedMember.getId())) {
-    // Notification 생성
-    Notification notification = Notification.builder()
-        .diaryTag(savedTag)
-        .member(taggedMember)
-        .type("TAG")
-        .time(LocalDateTime.now())
-        .isRead(false)
-        .build();
-
-    // 실시간 알림 발송
-    notificationService.sendRealTimeNotification(notification);
+@Entity
+public class Notification {
+    // 기존 필드들...
+    private Boolean isRead;     // 사용자가 실제 읽었는지
+    private Boolean isSent;     // 서버에서 발송했는지 (중복 방지용)
+    private LocalDateTime readAt;   // 읽은 시간
+    private LocalDateTime sentAt;   // 발송 시간
 }
 ```
 
-#### Phase 3: 스케줄 알림 통합
+**핵심 설계 원칙**: 발송 ≠ 읽음
+- `isSent`: 서버 발송 완료 여부 (스케줄러 중복 방지용)
+- `isRead`: 사용자 실제 확인 여부 (UI 읽음 표시용)
 
-3.1 스케줄 알림 생성 시점
-- CalendarServiceImpl.createSchedule(): 일정 생성 시
-- CalendarServiceImpl.updateSchedule(): 일정 수정 시
+### 2.2 관련 엔티티 (변경사항 없음)
+- **Schedule + ScheduleAlarm**: 상대적 알림 시간 저장
+- **Diary + DiaryTag**: 태그 상태 관리 (PENDING → ACCEPTED/REJECTED)
 
-3.2 알림 시각 계산 로직
-```java
-// ScheduleAlarm → Notification 변환
-for (ScheduleAlarm alarm : schedule.getAlarms()) {
-    LocalDateTime notifyTime = calculateNotifyTime(
-        schedule.getStartAt(),
-        alarm.getNotifyBeforeVal(),
-        alarm.getNotifyUnit()
-    );
+## 🚀 3. Phase별 구현 내용
 
-    // 반복 일정 고려
-    if (schedule.getIsRecurring()) {
-        generateRecurringNotifications(schedule, alarm, notifyTime);
+### Phase 1: WebSocket 기반 실시간 알림 시스템 구축 ✅
+
+#### 구현된 파일
+1. **WebSocketConfig.java**: STOMP 기반 메시징 설정
+2. **NotificationController.java**: REST API + WebSocket 메시지 핸들러
+3. **NotificationService.java + Impl**: 알림 비즈니스 로직
+4. **NotificationRepository.java**: JPA 쿼리 메서드
+5. **Response/Request DTO들**: API 응답 형식
+
+#### 핵심 기능
+- **WebSocket 엔드포인트**: `/ws` (SockJS 폴백 지원)
+- **메시지 채널**: `/user/{memberId}/notifications` (개인별)
+- **REST API**:
+  - `GET /api/notifications`: 알림 목록 (페이징)
+  - `PUT /api/notifications/{id}/read`: 읽음 처리
+  - `PUT /api/notifications/read-all`: 전체 읽음
+
+### Phase 2: 다이어리 태그 알림 통합 ✅
+
+#### 수정된 파일
+- **DiaryServiceImpl.java**: 태그 생성/상태 변경 시 알림 로직 추가
+
+#### 구현된 로직
+1. **태그 생성 시** (DiaryServiceImpl:127-137)
+   ```java
+   // 작성자가 아닌 다른 사용자를 태그한 경우 즉시 알림
+   if (!writer.getId().equals(taggedMember.getId()) && status == TagStatus.PENDING) {
+       notificationService.createDiaryTagNotification(tag.getId(), taggedMember.getId(), message);
+   }
+   ```
+
+2. **태그 수락/거절 시** (DiaryServiceImpl:537-555)
+   ```java
+   // 작성자에게 수락/거절 결과 알림
+   notificationService.createDiaryTagNotification(tag.getId(), writer.getId(), message);
+   ```
+
+### Phase 3: 스케줄 알림 통합 ✅
+
+#### 수정된 파일
+- **CalendarServiceImpl.java**: 스케줄 생성 시 알림 예약 로직 추가
+- **NotificationScheduler.java**: 1분마다 예정된 알림 발송
+
+#### 구현된 로직
+1. **스케줄 생성 시** (CalendarServiceImpl:132-143)
+   ```java
+   // 각 ScheduleAlarm마다 Notification 생성 (isSent=false)
+   notificationService.createScheduleNotification(savedAlarm.getId(), memberId, message);
+   ```
+
+2. **스케줄러** (NotificationScheduler.java)
+   ```java
+   @Scheduled(fixedRate = 60000) // 1분마다 실행
+   public void processScheduledNotifications() {
+       // isSent = false이고 time <= now인 알림들 찾아서 발송
+   }
+   ```
+
+### Phase 4: WebSocket 클라이언트 연결 관리 ✅
+
+#### 새로 구현된 파일
+1. **WebSocketSessionManager.java**: 메모리 기반 세션 관리
+2. **WebSocketAuthUtil.java**: JWT 토큰 추출 및 인증
+3. **WebSocketEventListener.java**: 연결/해제 이벤트 처리
+
+#### 핵심 기능
+1. **세션 관리**
+   ```java
+   // 멀티 디바이스/탭 지원
+   Map<Long, Set<String>> memberSessions; // memberId -> sessionIds
+   Map<String, Long> sessionMembers;      // sessionId -> memberId
+   ```
+
+2. **자동 이벤트 처리**
+   - 연결 시: JWT 인증 → 세션 등록
+   - 해제 시: 자동 세션 정리 (브라우저 닫기 감지)
+
+3. **최적화된 알림 발송**
+   ```java
+   if (sessionManager.isUserOnline(memberId)) {
+       // 온라인: WebSocket 실시간 발송
+   } else {
+       // 오프라인: DB에만 저장 (다음 로그인 시 REST API로 조회)
+   }
+   ```
+
+## 🌐 4. 프론트엔드 연동 가이드
+
+### 4.1 WebSocket 연결
+```javascript
+// SockJS + STOMP 클라이언트 설정
+const socket = new SockJS('/ws');
+const stompClient = Stomp.over(socket);
+
+// JWT 토큰을 헤더에 포함하여 연결
+stompClient.connect({
+    'Authorization': 'Bearer ' + jwtToken
+}, function(frame) {
+    console.log('WebSocket 연결 성공:', frame);
+
+    // 개인 알림 채널 구독
+    stompClient.subscribe('/user/' + memberId + '/notifications', function(message) {
+        const notification = JSON.parse(message.body);
+        displayNotification(notification); // 실시간 알림 표시
+    });
+});
+```
+
+### 4.2 페이지 로드 시 기존 알림 조회
+```javascript
+// 안읽은 알림 조회
+fetch('/api/notifications?unreadOnly=true', {
+    headers: { 'Authorization': 'Bearer ' + jwtToken }
+})
+.then(response => response.json())
+.then(data => {
+    displayNotificationList(data.body.data);
+    updateUnreadCount(data.body.pagination.unreadCount);
+});
+```
+
+### 4.3 알림 읽음 처리
+```javascript
+// 개별 읽음
+fetch('/api/notifications/' + notificationId + '/read', {
+    method: 'PUT',
+    headers: { 'Authorization': 'Bearer ' + jwtToken }
+});
+
+// 전체 읽음
+fetch('/api/notifications/read-all', {
+    method: 'PUT',
+    headers: { 'Authorization': 'Bearer ' + jwtToken }
+});
+```
+
+### 4.4 연결 해제 처리
+```javascript
+// 로그아웃 시 WebSocket 명시적 해제
+function logout() {
+    if (stompClient && stompClient.connected) {
+        stompClient.disconnect();
     }
+    // JWT 토큰 제거 및 페이지 이동
 }
+
+// 브라우저 종료 시 자동 해제 (추가 작업 불필요)
+window.addEventListener('beforeunload', function() {
+    // WebSocket은 자동으로 끊어짐
+});
 ```
 
-3.3 알림 스케줄러 구현
-```java
-@Scheduled(fixedRate = 60000) // 1분마다 실행
-public void processScheduledNotifications() {
-    LocalDateTime now = LocalDateTime.now();
-    List<Notification> dueNotifications =
-        notificationRepository.findDueNotifications(now);
+## 📡 5. API 설계 (최종)
 
-    for (Notification notification : dueNotifications) {
-        sendRealTimeNotification(notification);
-    }
-}
-```
+### 5.1 REST API (변경사항 없음)
+| 메서드 | 엔드포인트 | 설명 |
+|--------|------------|------|
+| GET | `/api/notifications` | 알림 목록 조회 (페이징, 필터링) |
+| PUT | `/api/notifications/{id}/read` | 개별 알림 읽음 처리 |
+| PUT | `/api/notifications/read-all` | 전체 알림 읽음 처리 |
+| GET | `/api/notifications/online-stats` | 온라인 사용자 통계 (관리자용) |
 
-#### Phase 4: WebSocket 메시지 처리
+### 5.2 WebSocket API
+| 타입 | 경로 | 설명 |
+|------|------|------|
+| CONNECT | `/ws` | WebSocket 연결 (JWT 인증 필요) |
+| SUBSCRIBE | `/user/{memberId}/notifications` | 개인 알림 채널 구독 |
+| SEND | `/app/connect` | 연결 확인 메시지 |
 
-4.1 클라이언트 연결 관리
-```java
-@MessageMapping("/connect")
-public void handleConnect(SimpMessageHeaderAccessor headerAccessor) {
-    String memberId = extractMemberIdFromToken(headerAccessor);
-    // 사용자별 세션 관리
-}
-```
-
-4.2 실시간 알림 발송
-```java
-public void sendRealTimeNotification(Notification notification) {
-    String destination = "/user/" + notification.getMember().getId() + "/notifications";
-    messagingTemplate.convertAndSend(destination, convertToDto(notification));
-}
-```
-
-### 2.3 API 설계
-
-#### 2.3.1 REST API
-```
-GET /api/notifications?page=1&size=20&unreadOnly=true
-- 알림 목록 조회 (페이징)
-- unreadOnly: 안읽은 알림만 조회
-
-PUT /api/notifications/{id}/read
-- 특정 알림 읽음 처리
-
-PUT /api/notifications/read-all
-- 모든 알림 읽음 처리
-```
-
-#### 2.3.2 WebSocket API
-```
-CONNECT /ws
-- WebSocket 연결
-
-SUBSCRIBE /user/{memberId}/notifications
-- 개인 알림 구독
-
-SEND /app/connect
-- 클라이언트 연결 알림
-```
-
-### 2.4 예상 메시지 포맷
-
-#### 다이어리 태그 알림
+### 5.3 메시지 형식 (최종)
 ```json
 {
   "id": 1,
@@ -245,6 +224,8 @@ SEND /app/connect
   "message": "광훈님이 다이어리에 회원님을 태그했습니다",
   "time": "2025-06-28T12:30:00",
   "isRead": false,
+  "readAt": null,
+  "createdAt": "2025-06-28T12:30:00",
   "relatedData": {
     "diaryId": 23,
     "diaryDate": "2025-06-28",
@@ -254,71 +235,60 @@ SEND /app/connect
 }
 ```
 
-#### 스케줄 알림
-```json
-{
-  "id": 2,
-  "type": "ALARM",
-  "message": "10분 후 '프로젝트 회의'가 시작됩니다",
-  "time": "2025-06-28T14:50:00",
-  "isRead": false,
-  "relatedData": {
-    "scheduleId": 123,
-    "scheduleTitle": "프로젝트 회의",
-    "startAt": "2025-06-28T15:00:00"
-  }
-}
-```
+## 🔧 6. 기술적 상세사항
 
-## 3. 기술적 고려사항
+### 6.1 온라인 사용자 구분 방식
+- **메모리 기반**: `ConcurrentHashMap`으로 활성 WebSocket 세션 추적
+- **실시간 확인**: DB 저장 없이 메모리에서 즉시 확인
+- **자동 정리**: 브라우저 종료/탭 닫기 시 `SessionDisconnectEvent`로 자동 세션 정리
 
-### 3.1 성능 최적화
-- WebSocket 연결 관리: 사용자별 세션 맵 관리
-- 배치 처리: 대량 알림 발송 시 배치 단위 처리
-- 캐싱: Redis를 활용한 온라인 사용자 캐시
+### 6.2 JWT 인증 처리
+- **WebSocket 연결 시**: Authorization 헤더에서 JWT 추출 및 검증
+- **연결 실패**: 잘못된 토큰은 세션 관리자에 등록하지 않음
+- **다중 방식 지원**: 헤더, 쿼리 파라미터 등 유연한 토큰 전달
 
-### 3.2 확장성 고려
-- 메시지 브로커: 향후 RabbitMQ/Kafka 확장 가능
-- 마이크로서비스: 알림 서비스 분리 가능
-- Push 알림: FCM 연동으로 모바일 알림 확장
+### 6.3 알림 발송 최적화
+- **온라인**: WebSocket으로 즉시 발송
+- **오프라인**: DB에만 저장 (네트워크 트래픽 절약)
+- **재연결**: 프론트엔드 재연결 시 REST API로 누락된 알림 조회
 
-### 3.3 예외 처리
-- WebSocket 연결 실패: HTTP 폴백 메커니즘
-- 알림 발송 실패: 재시도 로직 및 Dead Letter Queue
-- 대량 알림: Rate Limiting 적용
+## ⚠️ 7. 미구현/보완 필요 사항
 
-## 4. 구현 순서
+### 7.1 보안 강화
+- **WebSocket CORS**: 운영 환경에서 Origin 제한 필요
+- **Rate Limiting**: 대량 알림 발송 시 제한 로직
+- **토큰 갱신**: WebSocket 연결 중 JWT 만료 시 재인증
 
-### 우선순위 1 (핵심 기능)
-1. WebSocket 설정 및 NotificationController 기본 구현
-2. NotificationService 기본 CRUD 구현
-3. 다이어리 태그 알림 연동
-4. 기본 실시간 알림 발송
+### 7.2 성능 최적화
+- **Redis 연동**: 멀티 서버 환경에서 세션 공유
+- **메시지 큐**: RabbitMQ/Kafka로 대용량 알림 처리
+- **배치 최적화**: 대량 알림 발송 시 배치 단위 처리
 
-### 우선순위 2 (스케줄 알림)
-1. 스케줄 알림 생성 로직
-2. 알림 스케줄러 구현
-3. 반복 일정 알림 처리
+### 7.3 모니터링 및 관리
+- **세션 통계**: 실시간 연결 수, 사용자 분포 등
+- **알림 통계**: 발송 성공률, 읽음률 등
+- **장애 복구**: WebSocket 연결 실패 시 폴백 메커니즘
 
-### 우선순위 3 (최적화)
-1. 성능 테스트 및 최적화
-2. 예외 처리 강화
-3. 모니터링 및 로깅 추가
+### 7.4 추가 기능 확장
+- **푸시 알림**: FCM 연동으로 모바일 알림
+- **알림 설정**: 사용자별 알림 on/off 설정
+- **알림 타입 확장**: 댓글, 좋아요 등 추가 알림 타입
 
-## 5. 테스트 계획
+## 🎯 8. 핵심 성과
 
-### 5.1 단위 테스트
-- NotificationService 메서드별 테스트
-- 알림 생성 로직 테스트
-- WebSocket 메시지 발송 테스트
+### 8.1 설계 우수성
+- **발송 ≠ 읽음**: 정확한 알림 상태 관리
+- **통합 시스템**: 다양한 알림을 하나의 시스템으로 관리
+- **확장성**: 새로운 알림 타입 추가 용이
 
-### 5.2 통합 테스트
-- 다이어리 태그 → 알림 발송 플로우
-- 스케줄 알림 → 실시간 발송 플로우
-- WebSocket 연결 및 메시지 수신 테스트
+### 8.2 성능 효율성
+- **선택적 발송**: 온라인 사용자에게만 실시간 발송
+- **메모리 관리**: 휘발성 세션 정보는 메모리에서만 관리
+- **네트워크 최적화**: 불필요한 WebSocket 메시지 방지
 
-### 5.3 부하 테스트
-- 동시 WebSocket 연결 테스트
-- 대량 알림 발송 성능 테스트
+### 8.3 사용자 경험
+- **즉시성**: 온라인 사용자는 실시간 알림 수신
+- **일관성**: 오프라인 사용자도 로그인 시 누락 없이 알림 확인
+- **안정성**: 브라우저 종료/네트워크 끊김 시 자동 복구
 
-이 계획에 따라 단계별로 구현하면 요구사항에 맞는 통합 알림 시스템을 완성할 수 있습니다.
+이제 프론트엔드에서 위 가이드를 따라 구현하면 완전한 실시간 알림 시스템을 사용할 수 있습니다!
