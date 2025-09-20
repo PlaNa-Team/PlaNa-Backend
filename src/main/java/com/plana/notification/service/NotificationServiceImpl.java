@@ -113,6 +113,7 @@ public class NotificationServiceImpl implements NotificationService {
                 .type("TAG")
                 .time(LocalDateTime.now())
                 .isRead(false)
+                .isSent(false)
                 .build();
 
         Notification savedNotification = notificationRepository.save(notification);
@@ -141,6 +142,7 @@ public class NotificationServiceImpl implements NotificationService {
                 .type("ALARM")
                 .time(notifyTime)
                 .isRead(false)
+                .isSent(false)
                 .build();
 
         Notification savedNotification = notificationRepository.save(notification);
@@ -160,12 +162,19 @@ public class NotificationServiceImpl implements NotificationService {
             NotificationResponseDto responseDto = convertToResponseDto(notification);
 
             messagingTemplate.convertAndSend(destination, responseDto);
+
+            // 발송 완료 처리
+            notification.setIsSent(true);
+            notification.setSentAt(LocalDateTime.now());
+            notificationRepository.save(notification);
+
             log.info("실시간 알림 발송 완료: memberId={}, notificationId={}",
                     notification.getMember().getId(), notification.getId());
 
         } catch (Exception e) {
             log.error("실시간 알림 발송 실패: notificationId={}, error={}",
                     notification.getId(), e.getMessage(), e);
+            throw e; // 발송 실패 시 예외 재발생으로 isSent 상태 유지
         }
     }
 

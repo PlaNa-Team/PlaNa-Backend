@@ -47,7 +47,7 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
      * 발송 예정인 스케줄 알림 조회 (스케줄러용)
      * time 필드가 현재 시간 이전이고 아직 발송되지 않은 알림들
      */
-    @Query("SELECT n FROM Notification n WHERE n.type = 'ALARM' AND n.time <= :now AND n.isRead = false")
+    @Query("SELECT n FROM Notification n WHERE n.type = 'ALARM' AND n.time <= :now AND n.isSent = false")
     List<Notification> findDueScheduleNotifications(@Param("now") LocalDateTime now);
 
     /**
