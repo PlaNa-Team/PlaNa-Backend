@@ -5,6 +5,8 @@ import com.plana.notification.dto.response.ApiResponse;
 import com.plana.notification.dto.response.NotificationListResponseDto;
 import com.plana.notification.dto.response.NotificationResponseDto;
 import com.plana.notification.service.NotificationService;
+import com.plana.notification.service.WebSocketSessionManager;
+import com.plana.notification.util.WebSocketAuthUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -15,6 +17,8 @@ import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 /**
  * 알림 관련 REST API 및 WebSocket 메시징 컨트롤러
@@ -32,6 +36,8 @@ import org.springframework.web.bind.annotation.*;
 public class NotificationController {
 
     private final NotificationService notificationService;
+    private final WebSocketSessionManager sessionManager;
+    private final WebSocketAuthUtil webSocketAuthUtil;
 
     /**
      * 알림 목록 조회 API
@@ -147,13 +153,23 @@ public class NotificationController {
     @MessageMapping("/connect")
     public void handleConnect(SimpMessageHeaderAccessor headerAccessor) {
         try {
-            // JWT 토큰에서 사용자 ID 추출 (향후 구현)
             String sessionId = headerAccessor.getSessionId();
-            log.info("WebSocket 클라이언트 연결: sessionId = {}", sessionId);
+            log.info("WebSocket 클라이언트 연결 요청: sessionId = {}", sessionId);
 
-            // 향후 사용자별 세션 관리 로직 추가 예정
-            // String memberId = extractMemberIdFromToken(headerAccessor);
-            // notificationService.addUserSession(memberId, sessionId);
+            // JWT 토큰에서 사용자 ID 추출
+            Long memberId = webSocketAuthUtil.extractMemberIdFromHeaders(headerAccessor);
+
+            if (memberId != null) {
+                // 인증된 사용자 세션 등록 (이미 EventListener에서 처리되지만 추가 확인용)
+                log.info("WebSocket 연결 인증 성공: memberId={}, sessionId={}", memberId, sessionId);
+
+                // 연결 성공 응답 (선택사항)
+                // messagingTemplate.convertAndSendToUser(memberId.toString(), "/notifications",
+                //     Map.of("type", "connection", "status", "connected"));
+
+            } else {
+                log.warn("WebSocket 연결 인증 실패: sessionId={}", sessionId);
+            }
 
         } catch (Exception e) {
             log.error("WebSocket 연결 처리 중 오류 발생: {}", e.getMessage(), e);
@@ -161,9 +177,35 @@ public class NotificationController {
     }
 
     /**
-     * WebSocket 연결 해제 처리
-     * (향후 @EventListener를 통해 구현 예정)
+     * 현재 온라인 사용자 정보 조회 API (관리자용)
+     *
+     * @param authMember 인증된 사용자 정보
+     * @return 온라인 사용자 통계
      */
-    // @EventListener
-    // public void handleDisconnect(SessionDisconnectEvent event) { ... }
+    @GetMapping("/online-stats")
+    public ResponseEntity<ApiResponse<Object>> getOnlineStats(
+            @AuthenticationPrincipal AuthenticatedMemberDto authMember) {
+
+        try {
+            if (authMember == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ApiResponse.error(401, "인증이 필요합니다."));
+            }
+
+            // 온라인 상태 정보 수집
+            Map<String, Object> stats = Map.of(
+                    "onlineUserCount", sessionManager.getOnlineUserCount(),
+                    "totalSessionCount", sessionManager.getTotalSessionCount(),
+                    "mySessionCount", sessionManager.getUserSessionCount(authMember.getId()),
+                    "isOnline", sessionManager.isUserOnline(authMember.getId())
+            );
+
+            return ResponseEntity.ok(ApiResponse.success("온라인 상태 조회 성공", stats));
+
+        } catch (Exception e) {
+            log.error("온라인 상태 조회 중 오류 발생: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error(500, "온라인 상태 조회 중 오류가 발생했습니다."));
+        }
+    }
 }

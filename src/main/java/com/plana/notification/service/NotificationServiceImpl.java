@@ -36,6 +36,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final DiaryTagRepository diaryTagRepository;
     private final ScheduleAlarmRepository scheduleAlarmRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final WebSocketSessionManager sessionManager;
 
     @Override
     @Transactional(readOnly = true)
@@ -157,23 +158,34 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     public void sendRealTimeNotification(Notification notification) {
+        Long memberId = notification.getMember().getId();
+
         try {
-            String destination = "/user/" + notification.getMember().getId() + "/notifications";
-            NotificationResponseDto responseDto = convertToResponseDto(notification);
+            // 사용자가 온라인인지 확인
+            boolean isOnline = sessionManager.isUserOnline(memberId);
 
-            messagingTemplate.convertAndSend(destination, responseDto);
+            if (isOnline) {
+                // 온라인 사용자에게 실시간 알림 발송
+                String destination = "/user/" + memberId + "/notifications";
+                NotificationResponseDto responseDto = convertToResponseDto(notification);
 
-            // 발송 완료 처리
+                messagingTemplate.convertAndSend(destination, responseDto);
+                log.info("실시간 알림 발송 완료: memberId={}, notificationId={}, sessionCount={}",
+                        memberId, notification.getId(), sessionManager.getUserSessionCount(memberId));
+            } else {
+                // 오프라인 사용자는 발송 안함 (다음 로그인 시 REST API로 조회)
+                log.debug("오프라인 사용자 알림 저장: memberId={}, notificationId={}",
+                        memberId, notification.getId());
+            }
+
+            // 온라인/오프라인 상관없이 발송 완료 처리 (DB에 저장된 것으로 간주)
             notification.setIsSent(true);
             notification.setSentAt(LocalDateTime.now());
             notificationRepository.save(notification);
 
-            log.info("실시간 알림 발송 완료: memberId={}, notificationId={}",
-                    notification.getMember().getId(), notification.getId());
-
         } catch (Exception e) {
-            log.error("실시간 알림 발송 실패: notificationId={}, error={}",
-                    notification.getId(), e.getMessage(), e);
+            log.error("실시간 알림 발송 실패: memberId={}, notificationId={}, error={}",
+                    memberId, notification.getId(), e.getMessage(), e);
             throw e; // 발송 실패 시 예외 재발생으로 isSent 상태 유지
         }
     }
