@@ -11,6 +11,7 @@ import com.plana.calendar.entity.ScheduleAlarm;
 import com.plana.calendar.repository.CategoryRepository;
 import com.plana.calendar.repository.ScheduleRepository;
 import com.plana.calendar.repository.ScheduleAlarmRepository;
+import com.plana.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +32,7 @@ public class CalendarServiceImpl implements CalendarService {
     private final ScheduleAlarmRepository scheduleAlarmRepository;
     private final MemberRepository memberRepository;
     private final RecurrenceService recurrenceService;
+    private final NotificationService notificationService;
 
     @Override
     public List<ScheduleMonthlyItemDto> getMonthlySchedules(Long memberId, int year, int month) {
@@ -125,7 +127,20 @@ public class CalendarServiceImpl implements CalendarService {
                         .notifyBeforeVal(alarmDto.getNotifyBeforeVal())
                         .notifyUnit(alarmDto.getNotifyUnit())
                         .build();
-                scheduleAlarmRepository.save(alarm);
+                ScheduleAlarm savedAlarm = scheduleAlarmRepository.save(alarm);
+
+                // Notification 생성 (스케줄 알람용)
+                try {
+                    String message = String.format("%d%s 후 '%s'가 시작됩니다",
+                            alarmDto.getNotifyBeforeVal(),
+                            getUnitDisplayName(alarmDto.getNotifyUnit().name()),
+                            savedSchedule.getTitle());
+
+                    notificationService.createScheduleNotification(savedAlarm.getId(), memberId, message);
+                } catch (Exception e) {
+                    // 알림 생성 실패 시 로깅만 하고 스케줄 생성은 계속 진행
+                    System.err.println("스케줄 알림 생성 실패: " + e.getMessage());
+                }
             }
         }
 
@@ -286,5 +301,17 @@ public class CalendarServiceImpl implements CalendarService {
                 .stream()
                 .map(ScheduleSearchResponseDto::from)
                 .toList();
+    }
+
+    /**
+     * 알림 단위 표시명 변환
+     */
+    private String getUnitDisplayName(String unit) {
+        return switch (unit) {
+            case "MIN" -> "분";
+            case "HOUR" -> "시간";
+            case "DAY" -> "일";
+            default -> unit;
+        };
     }
 }
