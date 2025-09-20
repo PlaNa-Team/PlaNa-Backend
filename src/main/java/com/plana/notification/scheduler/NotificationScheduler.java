@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -35,7 +36,8 @@ public class NotificationScheduler {
      * - 발송 후 isSent = true, sentAt = 현재시간으로 업데이트
      * - isRead는 사용자가 실제 확인할 때까지 false 유지
      */
-    @Scheduled(fixedRate = 60000) // 60초마다 실행 (1분)
+    @Scheduled(fixedRate = 300000) // 5분마다 실행 (300초)
+    @Transactional(timeout = 30)
     public void processScheduledNotifications() {
         LocalDateTime now = LocalDateTime.now();
 
@@ -81,6 +83,7 @@ public class NotificationScheduler {
      * - 30일 이전의 읽은 알림들을 삭제하여 DB 용량 관리
      */
     @Scheduled(cron = "0 0 0 * * ?") // 매일 자정 실행
+    @Transactional(timeout = 60)
     public void cleanupOldNotifications() {
         try {
             LocalDateTime thirtyDaysAgo = LocalDateTime.now().minusDays(30);
