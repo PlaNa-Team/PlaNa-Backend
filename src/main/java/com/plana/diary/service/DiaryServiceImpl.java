@@ -369,6 +369,7 @@ public class DiaryServiceImpl implements DiaryService {
 
     // 다이어리 수정
     @Override
+    @Transactional
     public DiaryDetailResponseDto updateDiary(Long diaryId, Long memberId, DiaryUpdateRequestDto requestDto){
         Diary diary = diaryRepository.findById(diaryId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "다이어리를 찾을 수 없습니다."));
