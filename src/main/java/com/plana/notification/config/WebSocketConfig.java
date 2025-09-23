@@ -23,8 +23,23 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
      */
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns("*")  // CORS 설정 - 모든 Origin 허용 (개발용)
+        registry.addEndpoint("/api/ws")
+//                .setAllowedOrigins("*")  // 개발/테스트용으로 모든 origin 허용
+                .setAllowedOriginPatterns(
+                    "http://localhost:3000",     // React 기본 포트
+                    "http://localhost:5173",     // Vite 기본 포트
+                    "http://localhost:5174",     // Vite 대체 포트
+                    "http://localhost:80",       // HTTP
+                    "http://localhost",          // 포트 없는 localhost
+                    "http://localhost:443",      // HTTPS 포트
+                    "https://localhost:443",     // HTTPS
+                    "http://hoonee-math.info",   // 기존 프로덕션 도메인 (HTTP)
+                    "https://hoonee-math.info",  // 기존 프로덕션 도메인 (HTTPS)
+                    "http://plana.hoonee-math.info",   // 플래너 프로덕션 도메인 (HTTP)
+                    "https://plana.hoonee-math.info",  // 플래너 프로덕션 도메인 (HTTPS)
+                    "http://plana-frontend-silk.vercel.app",
+                    "https://plana-frontend-silk.vercel.app"
+                )
                 .withSockJS();  // SockJS 폴백 지원 (WebSocket 미지원 브라우저 대응)
     }
 
