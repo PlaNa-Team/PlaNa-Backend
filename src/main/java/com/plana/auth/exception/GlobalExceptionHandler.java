@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -122,6 +123,38 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .header("Content-Type", "application/json")
                 .body(body);
+    }
+
+    /**
+     * ResponseStatusException 처리
+     *
+     * ResponseStatusException은 Spring에서 제공하는 예외로,
+     * HTTP 상태 코드와 메시지를 함께 던질 수 있는 예외입니다.
+     *
+     * 사용 예시:
+     * - throw new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다");
+     * - throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 요청입니다");
+     *
+     * 이 핸들러는 ResponseStatusException에서 상태 코드와 메시지를 추출하여
+     * 일관된 JSON 응답 형태로 변환해줍니다.
+     *
+     * @param ex ResponseStatusException
+     * @return JSON 형태의 오류 응답 (상태 코드, 메시지, 타임스탬프 포함)
+     */
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, Object>> handleResponseStatusException(ResponseStatusException ex) {
+        log.warn("ResponseStatusException occurred: {}", ex.getMessage());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", ex.getStatusCode().value());
+        response.put("message", ex.getReason() != null ? ex.getReason() : "오류가 발생했습니다");
+        response.put("timestamp", System.currentTimeMillis());
+        response.put("error", ex.getStatusCode().toString());
+
+        return ResponseEntity
+                .status(ex.getStatusCode())
+                .header("Content-Type", "application/json")
+                .body(response);
     }
 
 }
