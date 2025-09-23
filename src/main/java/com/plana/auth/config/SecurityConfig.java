@@ -87,7 +87,10 @@ public class SecurityConfig {
                     "/v3/api-docs/**",        // Swaager가 자동 생성하는 API 명세 JSON 데이터가 위치하는 기본 URL 경로
                     "/swagger-ui/**",         // Swagger UI관련 정적리소스가 위치하는 경로
                     "/swagger-ui.html",      // Swagger UI를 열기 위한 메인 HTML 페이지 URL
-                    "/api/files/upload"
+                    "/api/files/upload",
+                    "/api/ws/**",           // WebSocket 엔드포인트
+                    "/api/ws/info/**",      // SockJS info 엔드포인트
+                    "/api/ws/websocket/**"  // SockJS transport 엔드포인트
                 ).permitAll()
                 
                 // 관리자만 접근 가능한 엔드포인트
