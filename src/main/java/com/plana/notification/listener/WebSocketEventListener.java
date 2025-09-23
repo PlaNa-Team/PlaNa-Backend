@@ -1,7 +1,6 @@
 package com.plana.notification.listener;
 
 import com.plana.notification.service.WebSocketSessionManager;
-import com.plana.notification.util.WebSocketAuthUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
@@ -11,6 +10,8 @@ import org.springframework.web.socket.messaging.SessionConnectedEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 import org.springframework.web.socket.messaging.SessionSubscribeEvent;
 import org.springframework.web.socket.messaging.SessionUnsubscribeEvent;
+
+import java.util.Map;
 
 /**
  * WebSocket 이벤트 리스너
@@ -24,7 +25,6 @@ import org.springframework.web.socket.messaging.SessionUnsubscribeEvent;
 public class WebSocketEventListener {
 
     private final WebSocketSessionManager sessionManager;
-    private final WebSocketAuthUtil webSocketAuthUtil;
 
     /**
      * WebSocket 연결 이벤트 처리
@@ -36,19 +36,22 @@ public class WebSocketEventListener {
         SimpMessageHeaderAccessor headerAccessor = SimpMessageHeaderAccessor.wrap(event.getMessage());
         String sessionId = headerAccessor.getSessionId();
 
-        log.info("WebSocket 연결됨: sessionId={}", sessionId);
+        log.debug("WebSocket 연결 이벤트: sessionId={}", sessionId);
 
         try {
-            // JWT 토큰에서 사용자 ID 추출
-            Long memberId = webSocketAuthUtil.extractMemberIdFromHeaders(headerAccessor);
+            // 핸드셰이크 인터셉터에서 설정한 세션 속성에서 사용자 정보 추출
+            Map<String, Object> sessionAttributes = headerAccessor.getSessionAttributes();
 
-            if (memberId != null) {
-                // 인증된 사용자 세션 등록
+            if (sessionAttributes != null && sessionAttributes.containsKey("memberId")) {
+                Long memberId = (Long) sessionAttributes.get("memberId");
+                String memberEmail = (String) sessionAttributes.get("memberEmail");
+
+                // 세션 매니저에 사용자 등록
                 sessionManager.addUserSession(memberId, sessionId);
-                log.info("인증된 사용자 WebSocket 연결: memberId={}, sessionId={}", memberId, sessionId);
+                log.info("WebSocket 연결 성공: memberId={}, email={}, sessionId={}",
+                        memberId, memberEmail, sessionId);
             } else {
-                log.warn("인증되지 않은 WebSocket 연결 시도: sessionId={}", sessionId);
-                // 인증되지 않은 연결은 세션 관리자에 등록하지 않음
+                log.warn("인증되지 않은 WebSocket 연결 시도: sessionId={} (핸드셰이크에서 차단되었어야 함)", sessionId);
             }
 
         } catch (Exception e) {
@@ -101,13 +104,11 @@ public class WebSocketEventListener {
             if (destination != null && destination.startsWith("/user/")) {
                 Long memberId = sessionManager.getMemberIdBySession(sessionId);
                 if (memberId != null) {
-                    // 본인의 알림 채널만 구독 가능한지 검증
-                    String expectedDestination = "/user/" + memberId + "/notifications";
-                    if (!destination.equals(expectedDestination)) {
-                        log.warn("잘못된 알림 채널 구독 시도: memberId={}, destination={}, expected={}",
-                                memberId, destination, expectedDestination);
-                    } else {
+                    // /user/queue/notifications 형태의 구독인지 확인
+                    if (destination.equals("/user/queue/notifications")) {
                         log.info("개인 알림 채널 구독 성공: memberId={}, destination={}", memberId, destination);
+                    } else {
+                        log.warn("알 수 없는 개인 채널 구독 시도: memberId={}, destination={}", memberId, destination);
                     }
                 } else {
                     log.warn("인증되지 않은 사용자의 개인 채널 구독 시도: sessionId={}, destination={}",

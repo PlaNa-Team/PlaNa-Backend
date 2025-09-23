@@ -1,5 +1,6 @@
 package com.plana.notification.config;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
@@ -15,7 +16,10 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
  */
 @Configuration
 @EnableWebSocketMessageBroker
+@RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+
+    private final JwtHandshakeInterceptor jwtHandshakeInterceptor;
 
     /**
      * STOMP 엔드포인트 등록
@@ -24,7 +28,6 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/api/ws")
-//                .setAllowedOrigins("*")  // 개발/테스트용으로 모든 origin 허용
                 .setAllowedOriginPatterns(
                     "http://localhost:3000",     // React 기본 포트
                     "http://localhost:5173",     // Vite 기본 포트
@@ -40,6 +43,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                     "http://plana-frontend-silk.vercel.app",
                     "https://plana-frontend-silk.vercel.app"
                 )
+                .addInterceptors(jwtHandshakeInterceptor)  // JWT 인증 인터셉터 추가
                 .withSockJS();  // SockJS 폴백 지원 (WebSocket 미지원 브라우저 대응)
     }
 

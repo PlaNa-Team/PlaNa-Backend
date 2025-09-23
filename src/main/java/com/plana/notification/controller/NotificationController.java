@@ -6,7 +6,6 @@ import com.plana.notification.dto.response.NotificationListResponseDto;
 import com.plana.notification.dto.response.NotificationResponseDto;
 import com.plana.notification.service.NotificationService;
 import com.plana.notification.service.WebSocketSessionManager;
-import com.plana.notification.util.WebSocketAuthUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -37,7 +36,6 @@ public class NotificationController {
 
     private final NotificationService notificationService;
     private final WebSocketSessionManager sessionManager;
-    private final WebSocketAuthUtil webSocketAuthUtil;
 
     /**
      * 알림 목록 조회 API
@@ -156,19 +154,22 @@ public class NotificationController {
             String sessionId = headerAccessor.getSessionId();
             log.info("WebSocket 클라이언트 연결 요청: sessionId = {}", sessionId);
 
-            // JWT 토큰에서 사용자 ID 추출
-            Long memberId = webSocketAuthUtil.extractMemberIdFromHeaders(headerAccessor);
+            // 핸드셰이크 인터셉터에서 설정한 세션 속성에서 사용자 정보 추출
+            Map<String, Object> sessionAttributes = headerAccessor.getSessionAttributes();
 
-            if (memberId != null) {
+            if (sessionAttributes != null && sessionAttributes.containsKey("memberId")) {
+                Long memberId = (Long) sessionAttributes.get("memberId");
+                String memberEmail = (String) sessionAttributes.get("memberEmail");
+
                 // 인증된 사용자 세션 등록 (이미 EventListener에서 처리되지만 추가 확인용)
-                log.info("WebSocket 연결 인증 성공: memberId={}, sessionId={}", memberId, sessionId);
+                log.info("WebSocket 연결 인증 성공: memberId={}, email={}, sessionId={}", memberId, memberEmail, sessionId);
 
                 // 연결 성공 응답 (선택사항)
                 // messagingTemplate.convertAndSendToUser(memberId.toString(), "/notifications",
                 //     Map.of("type", "connection", "status", "connected"));
 
             } else {
-                log.warn("WebSocket 연결 인증 실패: sessionId={}", sessionId);
+                log.warn("WebSocket 연결 인증 실패: sessionId={} (핸드셰이크에서 차단되었어야 함)", sessionId);
             }
 
         } catch (Exception e) {
