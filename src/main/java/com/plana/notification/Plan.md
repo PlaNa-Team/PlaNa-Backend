@@ -57,8 +57,8 @@ public class Notification {
 5. **Response/Request DTO들**: API 응답 형식
 
 #### 핵심 기능
-- **WebSocket 엔드포인트**: `/ws` (SockJS 폴백 지원)
-- **메시지 채널**: `/user/{memberId}/notifications` (개인별)
+- **WebSocket 엔드포인트**: `/api/ws` (SockJS 폴백 지원)
+- **메시지 채널**: `/user/queue/notifications` (개인별)
 - **REST API**:
   - `GET /api/notifications`: 알림 목록 (페이징)
   - `PUT /api/notifications/{id}/read`: 읽음 처리
@@ -138,7 +138,7 @@ public class Notification {
 ### 4.1 WebSocket 연결
 ```javascript
 // SockJS + STOMP 클라이언트 설정
-const socket = new SockJS('/ws');
+const socket = new SockJS('/api/ws');
 const stompClient = Stomp.over(socket);
 
 // JWT 토큰을 헤더에 포함하여 연결
@@ -148,7 +148,7 @@ stompClient.connect({
     console.log('WebSocket 연결 성공:', frame);
 
     // 개인 알림 채널 구독
-    stompClient.subscribe('/user/' + memberId + '/notifications', function(message) {
+    stompClient.subscribe('/user/queue/notifications', function(message) {
         const notification = JSON.parse(message.body);
         displayNotification(notification); // 실시간 알림 표시
     });
@@ -212,8 +212,8 @@ window.addEventListener('beforeunload', function() {
 ### 5.2 WebSocket API
 | 타입 | 경로 | 설명 |
 |------|------|------|
-| CONNECT | `/ws` | WebSocket 연결 (JWT 인증 필요) |
-| SUBSCRIBE | `/user/{memberId}/notifications` | 개인 알림 채널 구독 |
+| CONNECT | `/api/ws` | WebSocket 연결 (JWT 인증 필요) |
+| SUBSCRIBE | `/user/queue/notifications` | 개인 알림 채널 구독 |
 | SEND | `/app/connect` | 연결 확인 메시지 |
 
 ### 5.3 메시지 형식 (최종)
@@ -255,7 +255,7 @@ window.addEventListener('beforeunload', function() {
 ## ⚠️ 7. 미구현/보완 필요 사항
 
 ### 7.1 보안 강화
-- **WebSocket CORS**: 운영 환경에서 Origin 제한 필요
+- **WebSocket CORS**: 운영 환경에서 `setAllowedOriginPatterns("*")` 제거하고 구체적 도메인 설정 필요
 - **Rate Limiting**: 대량 알림 발송 시 제한 로직
 - **토큰 갱신**: WebSocket 연결 중 JWT 만료 시 재인증
 
@@ -291,4 +291,20 @@ window.addEventListener('beforeunload', function() {
 - **일관성**: 오프라인 사용자도 로그인 시 누락 없이 알림 확인
 - **안정성**: 브라우저 종료/네트워크 끊김 시 자동 복구
 
+## 🎉 8. 구현 완료 및 테스트 결과
+
+### 8.1 WebSocket 연결 테스트 성공 ✅
+- **배포 환경**: `https://plana.hoonee-math.info/api/ws` 연결 성공
+- **JWT 인증**: Authorization 헤더 정상 전송
+- **STOMP 프로토콜**: 연결 프레임 전송 완료
+- **실시간 통신**: 준비 완료
+
+### 8.2 해결된 주요 문제들
+1. **CORS 정책 문제**: WebSocket 엔드포인트를 `/ws`에서 `/api/ws`로 변경하여 Nginx 프록시 활용
+2. **401 인증 에러**: SecurityConfig에서 `/api/ws/**` 경로를 `permitAll()` 처리
+3. **Nginx 라우팅**: 기존 `/api` 프록시 설정을 활용하여 별도 WebSocket 프록시 설정 불필요
+
+### 8.3 프로덕션 준비 상태
 이제 프론트엔드에서 위 가이드를 따라 구현하면 완전한 실시간 알림 시스템을 사용할 수 있습니다!
+
+상세한 테스트 과정과 문제 해결 방법은 `README_WebSocket.md` 파일을 참조하세요.

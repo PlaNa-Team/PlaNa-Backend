@@ -47,9 +47,14 @@ public class SecurityConfig {
             
             // CORS 설정 적용
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            
+
+            // HTTP 보안 헤더 설정 (WebSocket SockJS iframe 지원)
+            .headers(headers -> headers
+                .frameOptions(frame -> frame.sameOrigin())  // X-Frame-Options: SAMEORIGIN
+            )
+
             // 세션 사용 안 함 (JWT 사용)
-            .sessionManagement(session -> 
+            .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             
             // JWT 인증 필터 추가 (UsernamePasswordAuthenticationFilter 이전에 실행)
@@ -88,9 +93,6 @@ public class SecurityConfig {
                     "/swagger-ui/**",         // Swagger UI관련 정적리소스가 위치하는 경로
                     "/swagger-ui.html",      // Swagger UI를 열기 위한 메인 HTML 페이지 URL
                     "/api/files/upload",
-                    "/api/ws/**",           // WebSocket 엔드포인트
-                    "/api/ws/info/**",      // SockJS info 엔드포인트
-                    "/api/ws/websocket/**"  // SockJS transport 엔드포인트
                     "/api/ws/**",              // WebSocket 엔드포인트 (모든 하위 경로)
                     "/api/ws/info/**",         // SockJS info 엔드포인트
                     "/api/ws/websocket/**",    // SockJS transport 엔드포인트

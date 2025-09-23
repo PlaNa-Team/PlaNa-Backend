@@ -165,11 +165,15 @@ public class NotificationServiceImpl implements NotificationService {
             boolean isOnline = sessionManager.isUserOnline(memberId);
 
             if (isOnline) {
-                // 온라인 사용자에게 실시간 알림 발송
-                String destination = "/user/" + memberId + "/notifications";
+                // 온라인 사용자에게 실시간 알림 발송 (Spring STOMP 표준 방식)
                 NotificationResponseDto responseDto = convertToResponseDto(notification);
 
-                messagingTemplate.convertAndSend(destination, responseDto);
+                // 직접 경로로 발송 (확인된 작동 방식)
+                String directDestination = "/user/" + memberId + "/queue/notifications";
+                log.info("실시간 알림 발송 시도: memberId={}, destination={}", memberId, directDestination);
+
+                messagingTemplate.convertAndSend(directDestination, responseDto);
+                log.info("실시간 알림 발송 완료: memberId={}, destination={}", memberId, directDestination);
                 log.info("실시간 알림 발송 완료: memberId={}, notificationId={}, sessionCount={}",
                         memberId, notification.getId(), sessionManager.getUserSessionCount(memberId));
             } else {

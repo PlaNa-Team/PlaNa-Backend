@@ -88,6 +88,9 @@ public class JwtHandshakeInterceptor implements HandshakeInterceptor {
             attributes.put("memberName", member.getName());
             attributes.put("authenticatedMember", member);
 
+            // Spring STOMP 사용자 매핑을 위한 사용자 이름 설정 (convertAndSendToUser에서 사용)
+            attributes.put("STOMP_USER_NAME", memberId.toString());
+
             log.info("WebSocket 핸드셰이크 인증 성공: memberId={}, email={}", memberId, member.getEmail());
             return true; // 연결 허용
 

@@ -6,6 +6,7 @@ import com.plana.notification.dto.response.NotificationListResponseDto;
 import com.plana.notification.dto.response.NotificationResponseDto;
 import com.plana.notification.service.NotificationService;
 import com.plana.notification.service.WebSocketSessionManager;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -36,6 +37,7 @@ public class NotificationController {
 
     private final NotificationService notificationService;
     private final WebSocketSessionManager sessionManager;
+    private final SimpMessagingTemplate messagingTemplate;
 
     /**
      * 알림 목록 조회 API
@@ -161,7 +163,8 @@ public class NotificationController {
                 Long memberId = (Long) sessionAttributes.get("memberId");
                 String memberEmail = (String) sessionAttributes.get("memberEmail");
 
-                // 인증된 사용자 세션 등록 (이미 EventListener에서 처리되지만 추가 확인용)
+                // 세션 매니저에 사용자 등록
+                sessionManager.addUserSession(memberId, sessionId);
                 log.info("WebSocket 연결 인증 성공: memberId={}, email={}, sessionId={}", memberId, memberEmail, sessionId);
 
                 // 연결 성공 응답 (선택사항)
@@ -174,6 +177,50 @@ public class NotificationController {
 
         } catch (Exception e) {
             log.error("WebSocket 연결 처리 중 오류 발생: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * WebSocket 테스트 메시지 수동 발송 API
+     *
+     * @param authMember 인증된 사용자 정보
+     * @return 발송 결과
+     */
+    @PostMapping("/test-message")
+    public ResponseEntity<ApiResponse<String>> sendTestMessage(
+            @AuthenticationPrincipal AuthenticatedMemberDto authMember) {
+
+        try {
+            if (authMember == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ApiResponse.error(401, "인증이 필요합니다."));
+            }
+
+            Long memberId = authMember.getId();
+
+            // 테스트 메시지 생성
+            Map<String, Object> testMessage = Map.of(
+                    "type", "MANUAL_TEST",
+                    "message", "수동 테스트 메시지입니다!",
+                    "time", java.time.LocalDateTime.now().toString(),
+                    "memberId", memberId
+            );
+
+            // 본인에게 테스트 메시지 발송
+            messagingTemplate.convertAndSendToUser(
+                memberId.toString(),
+                "/queue/notifications",
+                testMessage
+            );
+
+            log.info("수동 테스트 메시지 발송: memberId={}", memberId);
+
+            return ResponseEntity.ok(ApiResponse.success("테스트 메시지가 발송되었습니다.",null));
+
+        } catch (Exception e) {
+            log.error("테스트 메시지 발송 중 오류 발생: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error(500, "테스트 메시지 발송 중 오류가 발생했습니다."));
         }
     }
 
