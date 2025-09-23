@@ -42,6 +42,8 @@ public class WebSocketEventListener {
             // 핸드셰이크 인터셉터에서 설정한 세션 속성에서 사용자 정보 추출
             Map<String, Object> sessionAttributes = headerAccessor.getSessionAttributes();
 
+            log.info("세션 속성 디버깅: sessionId={}, attributes={}", sessionId, sessionAttributes);
+
             if (sessionAttributes != null && sessionAttributes.containsKey("memberId")) {
                 Long memberId = (Long) sessionAttributes.get("memberId");
                 String memberEmail = (String) sessionAttributes.get("memberEmail");

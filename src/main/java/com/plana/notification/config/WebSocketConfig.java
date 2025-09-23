@@ -27,24 +27,34 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
      */
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
+        // 순수 WebSocket 엔드포인트 (실제 사용되는 엔드포인트 설정SockJS 없이)
         registry.addEndpoint("/api/ws")
                 .setAllowedOriginPatterns(
-                    "http://localhost:3000",     // React 기본 포트
-                    "http://localhost:5173",     // Vite 기본 포트
-                    "http://localhost:5174",     // Vite 대체 포트
-                    "http://localhost:80",       // HTTP
-                    "http://localhost",          // 포트 없는 localhost
-                    "http://localhost:443",      // HTTPS 포트
-                    "https://localhost:443",     // HTTPS
-                    "http://hoonee-math.info",   // 기존 프로덕션 도메인 (HTTP)
-                    "https://hoonee-math.info",  // 기존 프로덕션 도메인 (HTTPS)
-                    "http://plana.hoonee-math.info",   // 플래너 프로덕션 도메인 (HTTP)
-                    "https://plana.hoonee-math.info",  // 플래너 프로덕션 도메인 (HTTPS)
-                    "http://plana-frontend-silk.vercel.app",
-                    "https://plana-frontend-silk.vercel.app"
+//                         "*",                         // 개발 테스트용
+                        "http://localhost:3000",        // React 기본 포트
+                        "http://localhost:5173",        // Vite 기본 포트
+                        "http://localhost:5174",        // Vite 대체 포트
+                        "http://localhost:80",          // HTTP
+                        "http://localhost",             // 포트 없는 localhost
+                        "http://localhost:443",         // HTTPS 포트
+                        "https://localhost:443",        // HTTPS
+                        "http://hoonee-math.info",      // 기존 프로덕션 도메인 (HTTP)
+                        "https://hoonee-math.info",     // 기존 프로덕션 도메인 (HTTPS)
+                        "http://plana.hoonee-math.info",   // 플래너 프로덕션 도메인 (HTTP)
+                        "https://plana.hoonee-math.info",  // 플래너 프로덕션 도메인 (HTTPS)
+                        "http://plana-frontend-silk.vercel.app",
+                        "https://plana-frontend-silk.vercel.app"
                 )
-                .addInterceptors(jwtHandshakeInterceptor)  // JWT 인증 인터셉터 추가
-                .withSockJS();  // SockJS 폴백 지원 (WebSocket 미지원 브라우저 대응)
+                .addInterceptors(jwtHandshakeInterceptor);  // JWT 인증 인터셉터 추가
+
+        // SockJS 폴백 엔드포인트 (별도, 25-09-23T19:50 기준 사용하지 않는 코드, WebSocket 미지원 브라우저 대응이라지만 사용하지 않아 삭제할 예정임)
+        registry.addEndpoint("/api/ws-sockjs")
+                .setAllowedOriginPatterns("*")
+                .addInterceptors(jwtHandshakeInterceptor)
+                .withSockJS()
+                .setStreamBytesLimit(512 * 1024)
+                .setHttpMessageCacheSize(1000)
+                .setDisconnectDelay(30 * 1000);
     }
 
     /**

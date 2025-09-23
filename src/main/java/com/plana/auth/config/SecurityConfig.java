@@ -91,6 +91,13 @@ public class SecurityConfig {
                     "/api/ws/**",           // WebSocket 엔드포인트
                     "/api/ws/info/**",      // SockJS info 엔드포인트
                     "/api/ws/websocket/**"  // SockJS transport 엔드포인트
+                    "/api/ws/**",              // WebSocket 엔드포인트 (모든 하위 경로)
+                    "/api/ws/info/**",         // SockJS info 엔드포인트
+                    "/api/ws/websocket/**",    // SockJS transport 엔드포인트
+                    "/api/ws/*/websocket/**",  // SockJS 세션별 WebSocket
+                    "/api/ws/*/xhr/**",        // SockJS XHR 폴백
+                    "/api/ws/*/jsonp/**",      // SockJS JSONP 폴백
+                    "/api/ws/*/iframe.html"    // SockJS iframe
                 ).permitAll()
                 
                 // 관리자만 접근 가능한 엔드포인트

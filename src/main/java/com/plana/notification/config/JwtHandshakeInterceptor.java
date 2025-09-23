@@ -45,20 +45,20 @@ public class JwtHandshakeInterceptor implements HandshakeInterceptor {
                                    WebSocketHandler wsHandler,
                                    Map<String, Object> attributes) {
 
-        log.debug("WebSocket 핸드셰이크 시작: {}", request.getURI());
+        log.info("WebSocket 핸드셰이크 시작: {}", request.getURI());
 
         try {
             // JWT 토큰 추출
             String token = extractTokenFromRequest(request);
 
             if (token == null) {
-                log.warn("WebSocket 연결 시 JWT 토큰이 없습니다: {}", request.getURI());
+                log.info("WebSocket 연결 시 JWT 토큰이 없습니다: {}", request.getURI());
                 return false; // 연결 거부
             }
 
             // 토큰 유효성 검증
             if (!jwtTokenProvider.validateToken(token)) {
-                log.warn("WebSocket 연결 시 유효하지 않은 JWT 토큰: {}", request.getURI());
+                log.debug("WebSocket 연결 시 유효하지 않은 JWT 토큰: {}", request.getURI());
                 return false; // 연결 거부
             }
 
@@ -148,14 +148,14 @@ public class JwtHandshakeInterceptor implements HandshakeInterceptor {
                     String value = keyValue[1];
 
                     if ("token".equals(key) || "access_token".equals(key)) {
-                        log.debug("쿼리 파라미터에서 JWT 토큰 추출: key={}, 길이={}", key, value.length());
+                        log.info("쿼리 파라미터에서 JWT 토큰 추출: key={}, 길이={}", key, value.length());
                         return value;
                     }
                 }
             }
         }
 
-        log.debug("JWT 토큰을 찾을 수 없음: {}", request.getURI());
+        log.info("JWT 토큰을 찾을 수 없음: {}", request.getURI());
         return null;
     }
 }
