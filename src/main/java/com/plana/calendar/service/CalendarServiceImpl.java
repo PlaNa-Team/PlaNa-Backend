@@ -225,7 +225,7 @@ public class CalendarServiceImpl implements CalendarService {
                 schedule.getIsAllDay(),
                 schedule.getColor(),
                 schedule.getIsRecurring(),
-                schedule.getCategory().getName(),
+                schedule.getCategory() != null ? schedule.getCategory().getName() : null,
                 virtualId
         );
     }
@@ -249,7 +249,7 @@ public class CalendarServiceImpl implements CalendarService {
                 schedule.getIsAllDay(),
                 schedule.getColor(),
                 schedule.getIsRecurring(),
-                schedule.getCategory().getName(),
+                schedule.getCategory() != null ? schedule.getCategory().getName() : null,
                 virtualId          // "recurring-123-1707134400"
         );
     }
@@ -263,7 +263,7 @@ public class CalendarServiceImpl implements CalendarService {
         if (schedule.getCategory() != null) {
             categoryDto = new CategoryResponseDto(
                     schedule.getCategory().getId(),
-                    schedule.getCategory().getName(),
+                    schedule.getCategory() != null ? schedule.getCategory().getName() : null,
                     schedule.getCategory().getColor()
             );
         }
