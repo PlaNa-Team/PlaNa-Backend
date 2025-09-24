@@ -31,7 +31,7 @@ window.testPureWebSocket = async function() {
     console.log('🔑 토큰 확인 완료:', token.length + '자');
 
     // 3. 순수 WebSocket 연결
-    const wsUrl = `ws://localhost:8080/api/ws?token=${encodeURIComponent(token)}`;
+    const wsUrl = `wss://plana.hoonee-math.info/api/ws?token=${encodeURIComponent(token)}`;
     console.log('🔌 WebSocket 연결 중:', wsUrl);
 
     return new Promise((resolve, reject) => {
@@ -114,7 +114,7 @@ window.testPureWebSocket = async function() {
 // 🧪 테스트 메시지 발송 함수
 window.sendTestMessage = async function() {
     try {
-        const response = await fetch('http://localhost:8080/api/notifications/test-message', {
+        const response = await fetch('https://plana.hoonee-math.info/api/notifications/test-message', {
             method: 'POST',
             headers: {
                 'Authorization': 'Bearer ' + localStorage.getItem('accessToken')
