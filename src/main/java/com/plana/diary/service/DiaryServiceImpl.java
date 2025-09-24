@@ -8,6 +8,7 @@ import com.plana.diary.entity.*;
 import com.plana.diary.enums.DiaryType;
 import com.plana.diary.enums.TagStatus;
 import com.plana.diary.repository.*;
+import com.plana.notification.service.NotificationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.crossstore.ChangeSetPersister;
@@ -30,6 +31,7 @@ public class DiaryServiceImpl implements DiaryService {
     private final MovieRepository movieRepository;
     private final DiaryTagRepository diaryTagRepository;
     private final MemberRepository memberRepository;
+    private final NotificationService notificationService;
 
 
     // 다이어리 등록
@@ -121,6 +123,18 @@ public class DiaryServiceImpl implements DiaryService {
                         .build();
 
                 diaryTagRepository.save(tag);
+
+                // 알림 생성: 작성자가 아닌 다른 사용자를 태그한 경우
+                if (!writer.getId().equals(taggedMember.getId()) && status == TagStatus.PENDING) {
+                    try {
+                        String message = String.format("%s님이 다이어리에 회원님을 태그했습니다",
+                                writer.getName() != null ? writer.getName() : writer.getLoginId());
+                        notificationService.createDiaryTagNotification(tag.getId(), taggedMember.getId(), message);
+                    } catch (Exception e) {
+                        // 알림 생성 실패 시 로깅만 하고 다이어리 생성은 계속 진행
+                        System.err.println("다이어리 태그 알림 생성 실패: " + e.getMessage());
+                    }
+                }
 
                 // response DTO (회원이면 memberId 반환)
                 tagDtos.add(CreateDiaryTagResponseDto.builder()
@@ -520,6 +534,26 @@ public class DiaryServiceImpl implements DiaryService {
         }
 
         diaryTagRepository.save(tag);
+
+        // 태그 수락/거절 시 작성자에게 알림 발송
+        if (newStatus == TagStatus.ACCEPTED || newStatus == TagStatus.REJECTED) {
+            try {
+                Member writer = tag.getDiary().getWriter();
+                Member taggedMember = tag.getMember();
+
+                if (!writer.getId().equals(taggedMember.getId())) { // 자기 자신에게는 알림 안 보냄
+                    String message = String.format("%s님이 다이어리 태그를 %s했습니다",
+                            taggedMember.getName() != null ? taggedMember.getName() : taggedMember.getLoginId(),
+                            newStatus == TagStatus.ACCEPTED ? "수락" : "거절");
+
+                    // 새로운 알림 생성 (기존 태그 알림과는 별개)
+                    notificationService.createDiaryTagNotification(tag.getId(), writer.getId(), message);
+                }
+            } catch (Exception e) {
+                // 알림 생성 실패 시 로깅만 하고 태그 업데이트는 계속 진행
+                System.err.println("다이어리 태그 상태 변경 알림 생성 실패: " + e.getMessage());
+            }
+        }
 
         return buildTagStatusUpdateResponse(tag);
     }
