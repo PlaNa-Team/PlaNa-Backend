@@ -1,5 +1,6 @@
 package com.plana.auth.dto;
 
+import com.plana.auth.enums.VerificationPurpose;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
@@ -15,4 +16,6 @@ public class EmailSendRequestDto {
     @NotBlank
     @Email
     String email;
+
+    private VerificationPurpose purpose;
 }

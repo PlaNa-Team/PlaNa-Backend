@@ -57,8 +57,10 @@ public class OAuth2UserService extends DefaultOAuth2UserService {
     private Member processOAuth2User(String registrationId, OAuth2User oAuth2User) {
         // 소셜 제공업체별로 사용자 정보 추출
         OAuth2UserInfo userInfo = OAuth2UserInfoFactory.getOAuth2UserInfo(registrationId, oAuth2User.getAttributes());
-        
-        if (userInfo.getEmail() == null || userInfo.getEmail().isEmpty()) {
+
+        String email = userInfo.getEmail();
+
+        if (email == null || email.isEmpty()) {
             throw new OAuth2AuthenticationException("Email not found from OAuth2 provider");
         }
 
@@ -70,10 +72,15 @@ public class OAuth2UserService extends DefaultOAuth2UserService {
         if (member != null) {
             // 기존 사용자인 경우: 정보 업데이트
             return updateExistingUser(member, userInfo);
-        } else {
-            // 새로운 사용자인 경우: 회원가입 처리
-            return registerNewMember(provider, userInfo);
         }
+
+        // 이메일로 이미 존재하면(다른 소셜/일반 포함) 신규 생성 금지
+        if (memberRepository.existsByEmail(email)) {
+            throw new OAuth2AuthenticationException("이미 가입된 이메일입니다. 기존 로그인 방법을 사용해 주세요.");
+        }
+        
+        // 신규 생성
+        return registerNewMember(provider, userInfo);
     }
 
     /**
@@ -132,6 +139,8 @@ public class OAuth2UserService extends DefaultOAuth2UserService {
                     return new GoogleOAuth2UserInfo(attributes);
                 case "kakao":
                     return new KakaoOAuth2UserInfo(attributes);
+                case "naver":
+                    return new NaverOAuth2UserInfo(attributes);
                 default:
                     throw new OAuth2AuthenticationException("Sorry! Login with " + registrationId + " is not supported yet.");
             }
@@ -197,9 +206,7 @@ public class OAuth2UserService extends DefaultOAuth2UserService {
         @Override
         public String getName() {
             Map<String, Object> properties = (Map<String, Object>) attributes.get("properties");
-            if (properties == null) {
-                return null;
-            }
+            if (properties == null) return null;
             return (String) properties.get("nickname");
         }
 
@@ -220,6 +227,28 @@ public class OAuth2UserService extends DefaultOAuth2UserService {
             }
             return (String) properties.get("profile_image");
         }
+    }
+
+    /**
+     * 네이버 OAuth2 사용자 정보 구현체
+     */
+    private static class NaverOAuth2UserInfo implements OAuth2UserInfo {
+        private final Map<String, Object> attributes;
+        public NaverOAuth2UserInfo(Map<String, Object> attributes) { this.attributes = attributes; }
+
+        private Map<String,Object> res() { return (Map<String, Object>) attributes.get("response"); }
+
+        @Override
+        public String getId()       { return (String) res().get("id"); }
+
+        @Override
+        public String getName()     { return (String) res().get("name"); }
+
+        @Override
+        public String getEmail()    { return (String) res().get("email"); }   // 연락처 이메일 주소
+
+        @Override
+        public String getImageUrl() { return (String) res().get("profile_image"); } // 프로필 사진
     }
 
     /**

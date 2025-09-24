@@ -8,16 +8,17 @@ import com.plana.diary.dto.response.*;
 import com.plana.diary.entity.Diary;
 import com.plana.diary.service.DiaryService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Collections;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
+import java.time.LocalDate;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api")
@@ -26,6 +27,7 @@ public class DiaryController {
     private final DiaryService diaryService;
     private final JwtTokenProvider jwtTokenProvider;
     private final ObjectMapper objectMapper;
+    private final Validator validator;
 
 
     // 다이어리 저장
@@ -52,6 +54,16 @@ public class DiaryController {
             case MOVIE -> objectMapper.convertValue(requestDto.getContent(), MovieContentRequestDto.class);
             case BOOK -> objectMapper.convertValue(requestDto.getContent(), BookContentRequestDto.class);
         };
+
+        //  convertedContent 객체에 대해 Bean Validation 검사 실행
+        Set<ConstraintViolation<Object>> violations = validator.validate(convertedContent);
+        if (!violations.isEmpty()) {
+            String errorMessage = violations.iterator().next().getMessage();
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(HttpStatus.BAD_REQUEST.value(), errorMessage));
+        }
+
+
         requestDto.setContent(convertedContent);
 
         // 3. 서비스 호출
@@ -62,23 +74,17 @@ public class DiaryController {
     }
 
     // 다이어리 조회
-    @GetMapping("/diaries/{diaryId}")
-    public ResponseEntity<DiaryDetailResponseDto> getDiaryDetail(
-            @PathVariable Long diaryId, //URL 경로에서 diaryId 값을 변수로 받는다.
+    @GetMapping("/diaries/detail")
+    public ResponseEntity<DiaryDetailResponseDto> getDiaryDetailByDate(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             HttpServletRequest request
-    ){
-        // 1. JWT 토큰 확인
+    ) {
         String token = jwtTokenProvider.resolveToken(request);
-        if (token == null){
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
+        if (token == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         Long memberId = jwtTokenProvider.getMemberIdFromToken(token);
-
-        // 2. 서비스 호출
-        DiaryDetailResponseDto responseDto = diaryService.getDiaryDetail(diaryId, memberId);
-
-        return ResponseEntity.ok(responseDto);
+        return ResponseEntity.ok(diaryService.getDiaryDetailByDate(date, memberId));
     }
+
 
 
     //월간 다이어리 조회
@@ -112,23 +118,14 @@ public class DiaryController {
 
     //다이어리 삭제
     @DeleteMapping("/diaries/{diaryId}")
-    public ResponseEntity<ApiResponse<Map<String, String>>> deleteDiary(
+    public ResponseEntity<ApiMessageResponse> deleteDiary(
             @AuthenticationPrincipal AuthenticatedMemberDto authMember,
-            @PathVariable Long diaryId){
-        // 로그인 사용자 ID
-        Long memberId = authMember.getId();
+            @PathVariable Long diaryId) {
 
-        // 서비스 호출
-        diaryService.deleteDiary(diaryId, memberId);
-
-        // 응답생성
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        200,
-                        Map.of("message", "다이어리가 삭제되었습니다.")
-                )
-        );
+        diaryService.deleteDiary(diaryId, authMember.getId());
+        return ResponseEntity.ok(ApiMessageResponse.of(200, "다이어리가 삭제되었습니다."));
     }
+
 
     // 다이어리 수정
     @PutMapping("/diaries/{diaryId}")

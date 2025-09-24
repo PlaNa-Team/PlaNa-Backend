@@ -2,6 +2,7 @@ package com.plana.auth.controller;
 
 import com.plana.auth.dto.*;
 import com.plana.auth.entity.Member;
+import com.plana.auth.enums.VerificationPurpose;
 import com.plana.auth.repository.MemberRepository;
 import com.plana.auth.service.EmailVerificationService;
 import com.plana.auth.service.JwtTokenProvider;
@@ -11,18 +12,16 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.core.user.OAuth2User;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.http.HttpStatus;
 import jakarta.validation.Valid;
 
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -41,74 +40,18 @@ public class AuthController {
     private final MemberRepository memberRepository;
     private final MemberService memberService;
     private final EmailVerificationService emailVerificationService;
-    
 
-    /**
-     * 현재 로그인한 사용자 정보 조회 (JWT 기반)
-     * 실제 프론트엔드에서 사용할 회원정보 API
-     * @param principal Spring Security에서 인증된 사용자 정보
-     * @return 사용자 정보 응답
-     */
-    @GetMapping("/me")
-    public ResponseEntity<Map<String, Object>> getCurrentUser(
-            @AuthenticationPrincipal AuthenticatedMemberDto authMember) {
-        
-        if (authMember == null) {
-            return ResponseEntity.status(401).body(Map.of("error", "Not authenticated"));
-        }
-        
-        // DB에서 최신 사용자 정보 조회 (토큰의 정보가 오래될 수 있음)
-        Optional<Member> memberOptional = memberRepository.findById(authMember.getId());
-        
-        if (memberOptional.isEmpty()) {
-            return ResponseEntity.status(404).body(Map.of("error", "User not found"));
-        }
-        
-        Member member = memberOptional.get();
-        
-        // 계정 비활성화 상태 확인
-        if (!member.getEnabled()) {
-            return ResponseEntity.status(403).body(Map.of("error", "Account is disabled"));
-        }
-        
-        // 깔끔한 사용자 정보 응답
-        Map<String, Object> response = new HashMap<>();
-        response.put("id", member.getId());
-        response.put("email", member.getEmail());
-        response.put("name", member.getName());
-        response.put("profileImageUrl", member.getProfileImageUrl());
-        response.put("provider", member.getProvider().getValue());
-        response.put("role", member.getRole());
-        response.put("enabled", member.getEnabled());
-        response.put("createdAt", member.getCreatedAt());
-        response.put("updatedAt", member.getUpdatedAt());
-        
-        log.info("User info requested via JWT: {}", member.getEmail());
-        return ResponseEntity.ok(response);
-    }
+    @Value("${jwt.refresh-token-validity}")
+    private long refreshTokenValidityMs;
 
-    /**
-     * 인증된 사용자 정보 조회 (OAuth2 로그인 확인용)
-     * @param oAuth2User OAuth2 인증된 사용자 정보
-     * @return 사용자 정보 응답
-     */
-    @GetMapping("/member")
-    public ResponseEntity<Map<String, Object>> getAuthenticatedUser(
-            @AuthenticationPrincipal OAuth2User oAuth2User) {
-        
-        if (oAuth2User == null) {
-            return ResponseEntity.status(401).body(Map.of("error", "Not authenticated"));
-        }
+    @Value("${jwt.refresh-token-validity-remember}")
+    private long refreshTokenValidityRememberMs;
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("authenticated", true);
-        response.put("name", oAuth2User.getName());
-        response.put("attributes", oAuth2User.getAttributes());
-        response.put("authorities", oAuth2User.getAuthorities());
-        
-        log.info("Authenticated member info requested: {}", oAuth2User.getName());
-        return ResponseEntity.ok(response);
-    }
+    @Value("${jwt.refresh-token-validity-short}")   // 예: 60초 (테스트)
+    private long refreshTokenValidityShortMs;
+
+    @Value("${jwt.refresh-token-validity-long}")   // 예: 120초 (테스트)
+    private long refreshTokenValidityLongMs;
 
     /**
      * 토큰 갱신 API
@@ -117,7 +60,7 @@ public class AuthController {
      * @return 새로운 액세스 토큰
      */
     @PostMapping("/refresh")
-    public ResponseEntity<Map<String, Object>> refreshToken(HttpServletRequest request) {
+    public ResponseEntity<Map<String, Object>> refreshToken(HttpServletRequest request, HttpServletResponse rp) {
         
         // 쿠키에서 리프레시 토큰 추출
         String refreshToken = getCookieValue(request, "refreshToken");
@@ -150,10 +93,35 @@ public class AuthController {
                 member.getRole()
             );
 
+            // Refresh 회전 + 슬라이딩 연장
+            // 임박 기준 : 3일 이내면 true
+            boolean aboutToExpire = jwtTokenProvider.isAboutToExpire(refreshToken, Duration.ofDays(3));
+
+            long remainingSec = jwtTokenProvider.getRemainingSeconds(refreshToken);
+            boolean longLived = remainingSec > (refreshTokenValidityShortMs / 1000); // 짧은 TTL 초과면 장기 취급
+            long nextRtMs = longLived ? refreshTokenValidityLongMs : refreshTokenValidityShortMs;
+
+            String nextRefresh = jwtTokenProvider.createRefreshToken(member.getId(), nextRtMs);
+
+
+            ResponseCookie rtCookie = ResponseCookie.from("refreshToken", nextRefresh)
+                    .httpOnly(true)
+                    .secure(true)
+                    .path("/")
+                    .sameSite("None")
+                    .maxAge(nextRtMs / 1000)
+                    .build();
+            rp.addHeader(HttpHeaders.SET_COOKIE, rtCookie.toString());
+
             Map<String, Object> response = new HashMap<>();
+            long expiresIn = Math.max(0,
+                    (jwtTokenProvider.getExpirationDateFromToken(newAccessToken).getTime() - System.currentTimeMillis()) / 1000);
+
             response.put("accessToken", newAccessToken);
             response.put("message", "Token refreshed successfully");
-            response.put("expiresIn", 3600); // 1시간 (초 단위)
+            response.put("expiresIn", expiresIn);
+            response.put("rotated", true);
+            response.put("slidingExtended", aboutToExpire);
             
             log.info("Token refreshed for member: {}", member.getEmail());
             return ResponseEntity.ok(response);
@@ -266,11 +234,29 @@ public class AuthController {
      * @return 로그인 결과 (JWT 토큰 포함)
      */
     @PostMapping("/login")
-    public ResponseEntity<LoginResponseDto> login(@Valid @RequestBody LoginRequestDto loginRequest) {
+    public ResponseEntity<LoginResponseDto> login(@Valid @RequestBody LoginRequestDto loginRequest, HttpServletResponse httpResponse) {
         log.info("General login API called: {}", loginRequest.getEmail());
 
-        LoginResponseDto response = memberService.login(loginRequest);
-        return ResponseEntity.ok(response);
+        IssuedTokens response = memberService.login(loginRequest);
+
+        // HttpOnly Refresh 쿠키 세팅 (웹 계층 책임)
+        ResponseCookie rtCookie = ResponseCookie.from("refreshToken", response.getRefreshToken())
+                .httpOnly(true)
+                .secure(true)       // 운영은 HTTPS 필수
+                .path("/")
+                .sameSite("None")
+                .maxAge(response.getRefreshMaxAgeSec())
+                .build();
+        httpResponse.addHeader(HttpHeaders.SET_COOKIE, rtCookie.toString());
+
+        // 바디에는 Access만
+        return ResponseEntity.ok(
+                LoginResponseDto.builder()
+                        .accessToken(response.getAccessToken())
+                        .expiresIn(response.getAccessExpiresInSec())
+                        .member(response.getMember())
+                        .build()
+        );
     }
     
 
@@ -294,12 +280,22 @@ public class AuthController {
 
     // 이메일 인증번호 발송
     @PostMapping("/email/verification-code")
-    public ResponseEntity<EmailSendResponseDto> sendVerificationCode(@Valid @RequestBody EmailSendRequestDto request) {
+    public ResponseEntity<EmailSendResponseDto> sendVerificationCode(
+            @Valid @RequestBody EmailSendRequestDto request) {
+
         String email = request.getEmail().trim().toLowerCase();
-        boolean duplicated = emailVerificationService.sendCodeIfNotDuplicated(email);
-        return duplicated
-                ? ResponseEntity.status(409).body(EmailSendResponseDto.duplicated())
-                : ResponseEntity.ok(EmailSendResponseDto.sent());
+        VerificationPurpose purpose = request.getPurpose();
+
+        boolean success = emailVerificationService.sendCode(email, purpose);
+
+        if (!success) {
+            return switch (purpose) {
+                case SIGN_UP -> ResponseEntity.status(409).body(EmailSendResponseDto.duplicated());
+                default      -> ResponseEntity.status(404).body(EmailSendResponseDto.notFound());
+            };
+        }
+
+        return ResponseEntity.ok(EmailSendResponseDto.sent());
     }
 
     // 이메일 인증번호 확인
@@ -311,6 +307,18 @@ public class AuthController {
             case MISMATCH -> ResponseEntity.badRequest().body(Map.of("status", 400, "verified", false, "message", "인증번호가 일치하지 않습니다."));
             case EXPIRED, NOT_FOUND -> ResponseEntity.status(410).body(Map.of("status", 410, "verified", false, "message", "인증번호가 만료되었거나 존재하지 않습니다."));
         };
+    }
+
+    // 비밀번호 재설정
+    @PatchMapping("/password/reset")
+    public ResponseEntity<?> resetPassword(@Valid @RequestBody PasswordResetRequestDto req) {
+        memberService.resetPassword(req);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "비밀번호가 성공적으로 변경되었습니다.");
+        response.put("status", 200);
+
+        return ResponseEntity.ok(response);
     }
 
 }

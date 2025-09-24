@@ -1,9 +1,11 @@
 package com.plana.auth.config;
 
 import com.plana.auth.service.OAuth2UserService;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
@@ -45,9 +47,14 @@ public class SecurityConfig {
             
             // CORS 설정 적용
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            
+
+            // HTTP 보안 헤더 설정 (WebSocket SockJS iframe 지원)
+            .headers(headers -> headers
+                .frameOptions(frame -> frame.sameOrigin())  // X-Frame-Options: SAMEORIGIN
+            )
+
             // 세션 사용 안 함 (JWT 사용)
-            .sessionManagement(session -> 
+            .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             
             // JWT 인증 필터 추가 (UsernamePasswordAuthenticationFilter 이전에 실행)
@@ -55,6 +62,10 @@ public class SecurityConfig {
             
             // HTTP 요청 인증 설정
             .authorizeHttpRequests(auth -> auth
+
+                .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
+                .requestMatchers(HttpMethod.HEAD, "/uploads/**").permitAll()
+                .requestMatchers(HttpMethod.OPTIONS, "/uploads/**").permitAll()
                 // 인증 없이 접근 가능한 엔드포인트
                 .requestMatchers(
                     "/",
@@ -67,20 +78,28 @@ public class SecurityConfig {
                     "/api/members",             // POST: 회원가입, GET: 이메일 중복 확인
                     "/api/members/check-id",    // 아이디 중복 확인
                     "/api/auth/email/verification-code", // 이메일 인증번호 전송
-                        "/api/auth/email/verify", // 이메일 인증번호 확인
+                    "/api/auth/email/verify", // 이메일 인증번호 확인
                     "/api/auth/signup",         // 일반 회원가입 API
                     "/api/auth/login",          // 일반 로그인 API
                     "/api/auth/social-login",   // OAuth2 로그인 엔드포인트
                     "/api/auth/social-signup",  // 소셜 회원가입
                     "/api/auth/reset/verify",   // 인증 코드 확인
                     "/api/auth/id-recovery",    // 아이디 찾기
-                    "/api/auth/password-reset/verify", // 비밀번호 찾기
+                    "/api/auth/refresh",        // 토큰 갱신
+                    "/api/auth/password/reset", // 비밀번호 재설정
 
                     "/error",                 // 에러 페이지
                     "/v3/api-docs/**",        // Swaager가 자동 생성하는 API 명세 JSON 데이터가 위치하는 기본 URL 경로
                     "/swagger-ui/**",         // Swagger UI관련 정적리소스가 위치하는 경로
-                    "/swagger-ui.html"        // Swagger UI를 열기 위한 메인 HTML 페이지 URL
-
+                    "/swagger-ui.html",      // Swagger UI를 열기 위한 메인 HTML 페이지 URL
+                    "/api/files/upload",
+                    "/api/ws/**",              // WebSocket 엔드포인트 (모든 하위 경로)
+                    "/api/ws/info/**",         // SockJS info 엔드포인트
+                    "/api/ws/websocket/**",    // SockJS transport 엔드포인트
+                    "/api/ws/*/websocket/**",  // SockJS 세션별 WebSocket
+                    "/api/ws/*/xhr/**",        // SockJS XHR 폴백
+                    "/api/ws/*/jsonp/**",      // SockJS JSONP 폴백
+                    "/api/ws/*/iframe.html"    // SockJS iframe
                 ).permitAll()
                 
                 // 관리자만 접근 가능한 엔드포인트
@@ -88,6 +107,12 @@ public class SecurityConfig {
                 
                 // 그 외 모든 요청은 인증 필요 (JWT 토큰 필요)
                 .anyRequest().authenticated()
+            )
+
+            // 인증 실패 시 로그인 페이지로 리다이렉트하는 대신 401 Unauthorized 에러를 반환
+            .exceptionHandling(ex -> ex
+                    .authenticationEntryPoint((req, res, ex2) ->
+                            res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized"))
             )
             
             // OAuth2 로그인 설정
@@ -126,8 +151,12 @@ public class SecurityConfig {
             "http://localhost",          // 포트 없는 localhost
             "http://localhost:443",      // HTTPS 포트
             "https://localhost:443",     // HTTPS
-            "http://hoonee-math.info",   // 프로덕션 도메인 (HTTP)
-            "https://hoonee-math.info"   // 프로덕션 도메인 (HTTPS)
+            "http://hoonee-math.info",   // 기존 프로덕션 도메인 (HTTP)
+            "https://hoonee-math.info",  // 기존 프로덕션 도메인 (HTTPS)
+            "http://plana.hoonee-math.info",   // 플래너 프로덕션 도메인 (HTTP)
+            "https://plana.hoonee-math.info",   // 플래너 프로덕션 도메인 (HTTPS)
+            "http://plana-frontend-silk.vercel.app",
+            "https://plana-frontend-silk.vercel.app"
         ));
         
         // 허용할 HTTP 메서드

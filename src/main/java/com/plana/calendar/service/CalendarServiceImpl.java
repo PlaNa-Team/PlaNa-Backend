@@ -11,6 +11,7 @@ import com.plana.calendar.entity.ScheduleAlarm;
 import com.plana.calendar.repository.CategoryRepository;
 import com.plana.calendar.repository.ScheduleRepository;
 import com.plana.calendar.repository.ScheduleAlarmRepository;
+import com.plana.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +32,7 @@ public class CalendarServiceImpl implements CalendarService {
     private final ScheduleAlarmRepository scheduleAlarmRepository;
     private final MemberRepository memberRepository;
     private final RecurrenceService recurrenceService;
+    private final NotificationService notificationService;
 
     @Override
     public List<ScheduleMonthlyItemDto> getMonthlySchedules(Long memberId, int year, int month) {
@@ -93,9 +95,12 @@ public class CalendarServiceImpl implements CalendarService {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
 
-        // Category 조회
-        Category category = categoryRepository.findByIdAndMemberId(createDto.getCategoryId(), memberId)
-                .orElseThrow(() -> new RuntimeException("카테고리를 찾을 수 없습니다."));
+        // Category 조회 (categoryId가 있을 때만)
+        Category category = null;
+        if (createDto.getCategoryId() != null) {
+            category = categoryRepository.findByIdAndMemberId(createDto.getCategoryId(), memberId)
+                    .orElseThrow(() -> new RuntimeException("카테고리를 찾을 수 없습니다."));
+        }
 
         // Schedule 생성
         Schedule schedule = Schedule.builder()
@@ -122,7 +127,20 @@ public class CalendarServiceImpl implements CalendarService {
                         .notifyBeforeVal(alarmDto.getNotifyBeforeVal())
                         .notifyUnit(alarmDto.getNotifyUnit())
                         .build();
-                scheduleAlarmRepository.save(alarm);
+                ScheduleAlarm savedAlarm = scheduleAlarmRepository.save(alarm);
+
+                // Notification 생성 (스케줄 알람용)
+                try {
+                    String message = String.format("%d%s 후 '%s'가 시작됩니다",
+                            alarmDto.getNotifyBeforeVal(),
+                            getUnitDisplayName(alarmDto.getNotifyUnit().name()),
+                            savedSchedule.getTitle());
+
+                    notificationService.createScheduleNotification(savedAlarm.getId(), memberId, message);
+                } catch (Exception e) {
+                    // 알림 생성 실패 시 로깅만 하고 스케줄 생성은 계속 진행
+                    System.err.println("스케줄 알림 생성 실패: " + e.getMessage());
+                }
             }
         }
 
@@ -207,7 +225,7 @@ public class CalendarServiceImpl implements CalendarService {
                 schedule.getIsAllDay(),
                 schedule.getColor(),
                 schedule.getIsRecurring(),
-                schedule.getCategory().getName(),
+                schedule.getCategory() != null ? schedule.getCategory().getName() : null,
                 virtualId
         );
     }
@@ -231,7 +249,7 @@ public class CalendarServiceImpl implements CalendarService {
                 schedule.getIsAllDay(),
                 schedule.getColor(),
                 schedule.getIsRecurring(),
-                schedule.getCategory().getName(),
+                schedule.getCategory() != null ? schedule.getCategory().getName() : null,
                 virtualId          // "recurring-123-1707134400"
         );
     }
@@ -240,12 +258,15 @@ public class CalendarServiceImpl implements CalendarService {
      * 상세 조회용 DTO 변환
      */
     private ScheduleDetailResponseDto convertToDetailResponseDto(Schedule schedule) {
-        // 카테고리 정보
-        CategoryResponseDto categoryDto = new CategoryResponseDto(
-                schedule.getCategory().getId(),
-                schedule.getCategory().getName(),
-                schedule.getCategory().getColor()
-        );
+        // 카테고리 정보 (category가 null일 수 있음)
+        CategoryResponseDto categoryDto = null;
+        if (schedule.getCategory() != null) {
+            categoryDto = new CategoryResponseDto(
+                    schedule.getCategory().getId(),
+                    schedule.getCategory() != null ? schedule.getCategory().getName() : null,
+                    schedule.getCategory().getColor()
+            );
+        }
 
         // 알림 정보
         List<ScheduleAlarmResponseDto> alarmDtos = scheduleAlarmRepository.findByScheduleId(schedule.getId());
@@ -267,5 +288,30 @@ public class CalendarServiceImpl implements CalendarService {
                 categoryDto,
                 alarmDtos
         );
+    }
+
+    /**
+     *
+     * @param memberId
+     * @param keyword
+     * @return
+     */
+    public List<ScheduleSearchResponseDto> search(Long memberId, String keyword) {
+        return scheduleRepository.searchByKeyword(memberId, keyword)
+                .stream()
+                .map(ScheduleSearchResponseDto::from)
+                .toList();
+    }
+
+    /**
+     * 알림 단위 표시명 변환
+     */
+    private String getUnitDisplayName(String unit) {
+        return switch (unit) {
+            case "MIN" -> "분";
+            case "HOUR" -> "시간";
+            case "DAY" -> "일";
+            default -> unit;
+        };
     }
 }

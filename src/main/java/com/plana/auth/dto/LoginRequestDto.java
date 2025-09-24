@@ -28,4 +28,7 @@ public class LoginRequestDto {
     @NotBlank(message = "비밀번호는 필수입니다")
     @Size(min = 1, max = 255, message = "비밀번호를 입력해주세요")
     private String password;
+
+    // 자동로그인 여부
+    private Boolean rememberMe;
 }
