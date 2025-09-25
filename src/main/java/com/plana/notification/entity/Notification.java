@@ -67,10 +67,18 @@ public class Notification {
     // 읽음 여부
     @Column(nullable = false)
     private Boolean isRead;
-    
+
+    // 발송 여부 (중복 발송 방지용)
+    @Column(nullable = false)
+    private Boolean isSent;
+
     // 읽음 시간
     @Column
     private LocalDateTime readAt;
+
+    // 발송 시간
+    @Column
+    private LocalDateTime sentAt;
     
     // 알림 생성 시간
     @Column(nullable = false, updatable = false)
