@@ -438,21 +438,54 @@ public class DiaryServiceImpl implements DiaryService {
             }
         }
         // 태그 교체 (null이면 변경없음, 빈배열이면 전부삭제)
-        if(requestDto.getDiaryTags() != null){
-            List<DiaryTag> existing = diaryTagRepository.findByDiary_Id(diaryId);
-            if (!existing.isEmpty()) diaryTagRepository.deleteAll(existing);
+        if (requestDto.getDiaryTags() != null) {
+            // 1) 기존 태그 삭제 - 벌크 삭제 + flush
+            diaryTagRepository.deleteByDiaryId(diaryId);
+            diaryTagRepository.flush();
 
-            for (DiaryTagRequestDto tagDto : requestDto.getDiaryTags()){
-                if (tagDto.getMemberId() != null){
-                    Member tagged = memberRepository.findById(tagDto.getMemberId())
+            // 2) 중복 체크용 Set
+            Set<Long> seenMemberIds = new HashSet<>();
+            boolean writerTaggedOnce = false;
+
+            for (DiaryTagRequestDto tagDto : requestDto.getDiaryTags()) {
+                if (tagDto.getMemberId() != null) {
+                    Long taggedId = tagDto.getMemberId();
+                    if (!seenMemberIds.add(taggedId)) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "태그 대상자가 중복되었습니다.");
+                    }
+
+                    Member tagged = memberRepository.findById(taggedId)
                             .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "태그 대상자 정보가 없습니다."));
-                    TagStatus status = diary.getWriter().getId().equals(tagged.getId()) ? TagStatus.WRITER : TagStatus.PENDING;
-                    diaryTagRepository.save(DiaryTag.builder().diary(diary).member(tagged).tagStatus(status).build());
-                }else if (tagDto.getTagText() != null && !tagDto.getTagText().isBlank()) {
-                    diaryTagRepository.save(DiaryTag.builder().diary(diary).tagText(tagDto.getTagText()).tagStatus(TagStatus.PENDING).build());
+
+                    TagStatus status = diary.getWriter().getId().equals(tagged.getId())
+                            ? TagStatus.WRITER : TagStatus.PENDING;
+
+                    if (status == TagStatus.WRITER) {
+                        if (writerTaggedOnce) {
+                            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "작성자 태그는 한 번만 지정할 수 있습니다.");
+                        }
+                        writerTaggedOnce = true;
+                    }
+
+                    // 3) 최후 안전핀
+                    if (!diaryTagRepository.existsByDiary_IdAndMember_Id(diaryId, taggedId)) {
+                        diaryTagRepository.save(DiaryTag.builder()
+                                .diary(diary)
+                                .member(tagged)
+                                .tagStatus(status)
+                                .build());
+                    }
+
+                } else if (tagDto.getTagText() != null && !tagDto.getTagText().isBlank()) {
+                    diaryTagRepository.save(DiaryTag.builder()
+                            .diary(diary)
+                            .tagText(tagDto.getTagText())
+                            .tagStatus(TagStatus.PENDING)
+                            .build());
                 }
             }
         }
+
 
         // 응답 재구성
         DiaryContentResponseDto contentDto = mapContentToDto(diary);
