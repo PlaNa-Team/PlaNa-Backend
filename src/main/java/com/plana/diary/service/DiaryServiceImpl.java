@@ -387,9 +387,15 @@ public class DiaryServiceImpl implements DiaryService {
         Diary diary = diaryRepository.findById(diaryId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "다이어리를 찾을 수 없습니다."));
 
-        if (!diary.getWriter().getId().equals(memberId)) {
+        boolean isWriter = diary.getWriter().getId().equals(memberId);
+        boolean isAcceptedTag = diaryTagRepository
+                .findByDiary_IdAndMember_Id(diaryId, memberId).stream()
+                .anyMatch(tag -> tag.getTagStatus() == TagStatus.ACCEPTED);
+
+        if (!isWriter && !isAcceptedTag) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "수정 권한이 없습니다.");
         }
+
 
         // 타입 변경 금지
         if(requestDto.getDiaryType() != null && requestDto.getDiaryType() != diary.getType()){
