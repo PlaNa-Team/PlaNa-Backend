@@ -36,6 +36,9 @@ public class Diary {
     private LocalDateTime createdAt; // 생성 시간
     private LocalDateTime updatedAt; //수정 시간
 
+    @Column(name = "is_deleted", nullable = false)
+    private boolean isDeleted = false;
+
     @PrePersist // 엔티티가 DB에 저장되기 전에 실행되는 메서드에 붙이는 어노테이션
     public void onCreate() {
         this.createdAt = this.updatedAt = LocalDateTime.now(); //최초 저장 시점
@@ -44,5 +47,9 @@ public class Diary {
     @PreUpdate
     public void onUpdate() {
         this.updatedAt = LocalDateTime.now(); // 업데이트 시점
+    }
+
+    public void markDeleted() {
+        this.isDeleted = true;
     }
 }

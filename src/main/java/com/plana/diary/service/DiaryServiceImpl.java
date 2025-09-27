@@ -351,34 +351,55 @@ public class DiaryServiceImpl implements DiaryService {
                 .build();
     }
 
-    // 다이어리 삭제
+//    // 다이어리 삭제
+//    @Override
+//    @Transactional
+//    public void deleteDiary(Long diaryId, Long memberId){
+//        // 다이어리 대상 조회
+//        Diary diary = diaryRepository.findById(diaryId)
+//                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "다이어리를 찾을 수 없습니다."));
+//
+//        // 권한체크
+//        if (!diary.getWriter().getId().equals(memberId)){
+//            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "삭제 권한이 없습니다.");
+//        }
+//
+//        // 연관 데이터 삭제
+//        // 1) 태그
+//        List<DiaryTag> tags = diaryTagRepository.findByDiary_Id(diaryId);
+//        if (!tags.isEmpty()) diaryTagRepository.deleteAll(tags);
+//
+//        // 2)typq별
+//        // ifPresent는 값이 있으면 코드를 실행하라는 의미
+//        switch (diary.getType()) {
+//            case DAILY -> dailyRepository.findByDiary_Id(diaryId).ifPresent(dailyRepository::delete);
+//            case BOOK -> bookRepository.findByDiary_Id(diaryId).ifPresent(bookRepository::delete);
+//            case MOVIE -> movieRepository.findByDiary_Id(diaryId).ifPresent(movieRepository::delete);
+//        }
+//
+//        // 본문 삭제
+//        diaryRepository.delete(diary);
+//    }
+
     @Override
     @Transactional
-    public void deleteDiary(Long diaryId, Long memberId){
-        // 다이어리 대상 조회
-        Diary diary = diaryRepository.findById(diaryId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "다이어리를 찾을 수 없습니다."));
+    public void deleteDiary(Long diaryId, Long memberId) {
+        // 삭제되지 않은 다이어리 조회
+        Diary diary = diaryRepository.findByIdAndIsDeletedFalse(diaryId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "다이어리를 찾을 수 없습니다."));
 
-        // 권한체크
-        if (!diary.getWriter().getId().equals(memberId)){
+        // 권한 체크
+        if (!diary.getWriter().getId().equals(memberId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "삭제 권한이 없습니다.");
         }
 
-        // 연관 데이터 삭제
-        // 1) 태그
-        List<DiaryTag> tags = diaryTagRepository.findByDiary_Id(diaryId);
-        if (!tags.isEmpty()) diaryTagRepository.deleteAll(tags);
+        // 태그 상태를 모두 DELETED로 변경
+        diaryTagRepository.bulkUpdateStatusByDiaryId(diaryId, TagStatus.DELETED);
 
-        // 2)typq별
-        // ifPresent는 값이 있으면 코드를 실행하라는 의미
-        switch (diary.getType()) {
-            case DAILY -> dailyRepository.findByDiary_Id(diaryId).ifPresent(dailyRepository::delete);
-            case BOOK -> bookRepository.findByDiary_Id(diaryId).ifPresent(bookRepository::delete);
-            case MOVIE -> movieRepository.findByDiary_Id(diaryId).ifPresent(movieRepository::delete);
-        }
-
-        // 본문 삭제
-        diaryRepository.delete(diary);
+        // 다이어리 소프트 삭제 처리
+        diary.markDeleted();   // isDeleted = true
+        diaryRepository.save(diary);
     }
 
     // 다이어리 수정

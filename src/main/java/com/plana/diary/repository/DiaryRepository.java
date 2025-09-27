@@ -134,5 +134,8 @@ order by x.display_date asc
                                            @Param("end") LocalDate end);
 
 
+    Optional<Diary> findByIdAndIsDeletedFalse(Long id);
+
+
 
 }

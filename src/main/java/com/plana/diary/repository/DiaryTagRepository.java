@@ -17,6 +17,12 @@ public interface DiaryTagRepository extends JpaRepository<DiaryTag, Long> {
     // diaryId + memberId로 태그 정보 조회
     List<DiaryTag> findByDiary_IdAndMember_Id(Long diaryId, Long memberId);
 
+    // 한 번에 다이어리 상태를 변경
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update DiaryTag t set t.tagStatus = :status where t.diary.id = :diaryId")
+    int bulkUpdateStatusByDiaryId(@Param("diaryId") Long diaryId,
+                                  @Param("status") TagStatus status);
+    
     // 다이어리 전체 태그 조회
     List<DiaryTag> findByDiary_Id(Long diaryId);
 
