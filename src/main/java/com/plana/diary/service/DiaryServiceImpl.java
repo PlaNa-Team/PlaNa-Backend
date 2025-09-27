@@ -8,6 +8,8 @@ import com.plana.diary.entity.*;
 import com.plana.diary.enums.DiaryType;
 import com.plana.diary.enums.TagStatus;
 import com.plana.diary.repository.*;
+import com.plana.notification.entity.Notification;
+import com.plana.notification.repository.NotificationRepository;
 import com.plana.notification.service.NotificationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +33,8 @@ public class DiaryServiceImpl implements DiaryService {
     private final MovieRepository movieRepository;
     private final DiaryTagRepository diaryTagRepository;
     private final MemberRepository memberRepository;
+
+    private final NotificationRepository notificationRepository;
     private final NotificationService notificationService;
 
 
@@ -351,35 +355,6 @@ public class DiaryServiceImpl implements DiaryService {
                 .build();
     }
 
-//    // 다이어리 삭제
-//    @Override
-//    @Transactional
-//    public void deleteDiary(Long diaryId, Long memberId){
-//        // 다이어리 대상 조회
-//        Diary diary = diaryRepository.findById(diaryId)
-//                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "다이어리를 찾을 수 없습니다."));
-//
-//        // 권한체크
-//        if (!diary.getWriter().getId().equals(memberId)){
-//            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "삭제 권한이 없습니다.");
-//        }
-//
-//        // 연관 데이터 삭제
-//        // 1) 태그
-//        List<DiaryTag> tags = diaryTagRepository.findByDiary_Id(diaryId);
-//        if (!tags.isEmpty()) diaryTagRepository.deleteAll(tags);
-//
-//        // 2)typq별
-//        // ifPresent는 값이 있으면 코드를 실행하라는 의미
-//        switch (diary.getType()) {
-//            case DAILY -> dailyRepository.findByDiary_Id(diaryId).ifPresent(dailyRepository::delete);
-//            case BOOK -> bookRepository.findByDiary_Id(diaryId).ifPresent(bookRepository::delete);
-//            case MOVIE -> movieRepository.findByDiary_Id(diaryId).ifPresent(movieRepository::delete);
-//        }
-//
-//        // 본문 삭제
-//        diaryRepository.delete(diary);
-//    }
 
     @Override
     @Transactional
@@ -393,6 +368,9 @@ public class DiaryServiceImpl implements DiaryService {
         if (!diary.getWriter().getId().equals(memberId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "삭제 권한이 없습니다.");
         }
+
+        // 삭제시 알림도 같이 제거
+        notificationRepository.deleteByDiaryId(diaryId);
 
         // 태그 상태를 모두 DELETED로 변경
         diaryTagRepository.bulkUpdateStatusByDiaryId(diaryId, TagStatus.DELETED);
@@ -474,11 +452,14 @@ public class DiaryServiceImpl implements DiaryService {
         }
         // 태그 교체 (null이면 변경없음, 빈배열이면 전부삭제)
         if (requestDto.getDiaryTags() != null) {
+            //기존 알림 먼저 삭제
+            notificationRepository.deleteByDiaryId(diaryId);
+
             // 1) 기존 태그 삭제 - 벌크 삭제 + flush
             diaryTagRepository.deleteByDiaryId(diaryId);
             diaryTagRepository.flush();
 
-            // 2) 중복 체크용 Set
+            // 2) 새 태그 저장 + 필요 시 새 알림 생성
             Set<Long> seenMemberIds = new HashSet<>();
             boolean writerTaggedOnce = false;
 
@@ -502,12 +483,21 @@ public class DiaryServiceImpl implements DiaryService {
                         writerTaggedOnce = true;
                     }
 
-                    // 3) 최후 안전핀
-                    if (!diaryTagRepository.existsByDiary_IdAndMember_Id(diaryId, taggedId)) {
-                        diaryTagRepository.save(DiaryTag.builder()
-                                .diary(diary)
-                                .member(tagged)
-                                .tagStatus(status)
+                    DiaryTag savedTag = diaryTagRepository.save(DiaryTag.builder()
+                            .diary(diary)
+                            .member(tagged)
+                            .tagStatus(status)
+                            .build());
+
+                    // 새 태그 알림 발송
+                    if (status == TagStatus.PENDING) {
+                        notificationRepository.save(Notification.builder()
+                                .diaryTag(savedTag)
+                                .member(tagged)  // 알림 받을 사용자
+                                .type("TAG")
+                                .time(LocalDateTime.now()) // 즉시 알림
+                                .isRead(false)
+                                .isSent(false)
                                 .build());
                     }
 
