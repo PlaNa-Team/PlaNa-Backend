@@ -356,6 +356,7 @@ public class DiaryServiceImpl implements DiaryService {
     }
 
 
+    // 다이어리 삭제
     @Override
     @Transactional
     public void deleteDiary(Long diaryId, Long memberId) {
@@ -365,8 +366,13 @@ public class DiaryServiceImpl implements DiaryService {
                         HttpStatus.NOT_FOUND, "다이어리를 찾을 수 없습니다."));
 
         // 권한 체크
-        if (!diary.getWriter().getId().equals(memberId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "삭제 권한이 없습니다.");
+        boolean isWriter = diary.getWriter().getId().equals(memberId);
+        boolean isAcceptedTag = diaryTagRepository
+                .findByDiary_IdAndMember_Id(diaryId, memberId).stream()
+                .anyMatch(tag -> tag.getTagStatus() == TagStatus.ACCEPTED);
+
+        if (!isWriter && !isAcceptedTag) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "수정 권한이 없습니다.");
         }
 
         // 삭제시 알림도 같이 제거
