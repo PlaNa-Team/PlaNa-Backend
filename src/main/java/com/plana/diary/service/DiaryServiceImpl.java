@@ -8,6 +8,7 @@ import com.plana.diary.entity.*;
 import com.plana.diary.enums.DiaryType;
 import com.plana.diary.enums.TagStatus;
 import com.plana.diary.repository.*;
+import com.plana.lock.service.LockService;
 import com.plana.notification.entity.Notification;
 import com.plana.notification.repository.NotificationRepository;
 import com.plana.notification.service.NotificationService;
@@ -38,6 +39,8 @@ public class DiaryServiceImpl implements DiaryService {
 
     private final NotificationRepository notificationRepository;
     private final NotificationService notificationService;
+
+    private final LockService lockService;
 
     private final StringRedisTemplate redis;
 
@@ -411,18 +414,13 @@ public class DiaryServiceImpl implements DiaryService {
     // 다이어리 수정
     @Override
     @Transactional
-    public DiaryDetailResponseDto updateDiary(Long diaryId, Long memberId, DiaryUpdateRequestDto requestDto){
-        String lockKey = "diary:lock:" + diaryId;
-        String owner = String.valueOf(memberId);
-
-        // 락 획득 시도
-        Boolean success = redis.opsForValue().setIfAbsent(lockKey, owner, Duration.ofMinutes(5));
-        if (Boolean.FALSE.equals(success)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "현재 다른 사용자가 수정 중입니다.");
+    public DiaryDetailResponseDto updateDiary(Long diaryId, Long memberId, DiaryUpdateRequestDto requestDto, String lockToken){
+        // 락 소유 검증 (획득 X, 검증만)
+        if (lockToken == null || !lockService.isOwner(diaryId, lockToken)) {
+            throw new ResponseStatusException(HttpStatus.LOCKED, "현재 다른 사용자가 수정 중입니다.");
         }
 
-        try {
-            Diary diary = diaryRepository.findById(diaryId)
+        Diary diary = diaryRepository.findById(diaryId)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "다이어리를 찾을 수 없습니다."));
 
             boolean isWriter = diary.getWriter().getId().equals(memberId);
@@ -577,14 +575,6 @@ public class DiaryServiceImpl implements DiaryService {
                     diary.getCreatedAt(), diary.getUpdatedAt(), contentDto, tagDtos
 //                    , diary.getVersion()
             );
-        }
-        finally {
-            // 락 해제 (내가 소유한 경우만)
-            String lockValue = redis.opsForValue().get(lockKey);
-            if (owner.equals(lockValue)) {
-                redis.delete(lockKey);
-            }
-        }
     }
 
     // 태그 수락, 거절

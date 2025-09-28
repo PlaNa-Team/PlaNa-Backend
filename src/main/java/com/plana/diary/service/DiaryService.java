@@ -23,7 +23,7 @@ public interface DiaryService {
     void deleteDiary(Long diaryId, Long memberId);
 
     // 다이어리 수정
-    DiaryDetailResponseDto updateDiary(Long diaryId, Long memberId, DiaryUpdateRequestDto requestDto);
+    DiaryDetailResponseDto updateDiary(Long diaryId, Long memberId, DiaryUpdateRequestDto requestDto, String lockToken);
 
     TagStatusUpdateResponseDto updateDiaryTagStatus(Long tagId, Long memberId, String tagStatus);
 
