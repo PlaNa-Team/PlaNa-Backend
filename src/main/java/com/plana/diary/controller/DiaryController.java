@@ -132,7 +132,8 @@ public class DiaryController {
     public ResponseEntity<DiaryUpdateResponse> updateDiary(
             @PathVariable Long diaryId, //url 경로의 {diaryId} 부분을 매개변수에 매핑
             @AuthenticationPrincipal AuthenticatedMemberDto authMember, //스프링 시큐리티에서 현재 로그인한 사용자의 정보를 주입해주는 어노테이션
-            @RequestBody DiaryUpdateRequestDto requestDto //클라이언트가 보낸 JSON 데이터를 DTO 필드에 맞게 변환해준다.
+            @RequestBody DiaryUpdateRequestDto requestDto, //클라이언트가 보낸 JSON 데이터를 DTO 필드에 맞게 변환해준다.
+            @RequestHeader("X-Lock-Token") String lockToken
     ) {
         if (authMember == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -148,7 +149,7 @@ public class DiaryController {
             requestDto.setContent(converted);
         }
 
-        DiaryDetailResponseDto updated = diaryService.updateDiary(diaryId, authMember.getId(), requestDto);
+        DiaryDetailResponseDto updated = diaryService.updateDiary(diaryId, authMember.getId(), requestDto, lockToken);
 
         DiaryUpdateResponse response = DiaryUpdateResponse.builder()
                 .status(200)

@@ -17,6 +17,12 @@ public interface DiaryTagRepository extends JpaRepository<DiaryTag, Long> {
     // diaryId + memberId로 태그 정보 조회
     List<DiaryTag> findByDiary_IdAndMember_Id(Long diaryId, Long memberId);
 
+    // 한 번에 다이어리 상태를 변경
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update DiaryTag t set t.tagStatus = :status where t.diary.id = :diaryId")
+    int bulkUpdateStatusByDiaryId(@Param("diaryId") Long diaryId,
+                                  @Param("status") TagStatus status);
+    
     // 다이어리 전체 태그 조회
     List<DiaryTag> findByDiary_Id(Long diaryId);
 
@@ -40,4 +46,12 @@ public interface DiaryTagRepository extends JpaRepository<DiaryTag, Long> {
 
     List<DiaryTag> findByDiary_IdInAndMember_IdAndTagStatus(
             List<Long> diaryIds, Long memberId, TagStatus tagStatus);
+
+    // 1) 벌크 삭제 (DELETE가 먼저 DB에 반영되도록)
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("delete from DiaryTag t where t.diary.id = :diaryId")
+    void deleteByDiaryId(@Param("diaryId") Long diaryId);
+
+    // 2) 존재 여부 확인
+    boolean existsByDiary_IdAndMember_Id(Long diaryId, Long memberId);
 }

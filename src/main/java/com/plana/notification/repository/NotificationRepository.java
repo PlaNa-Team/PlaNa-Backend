@@ -61,4 +61,20 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
      */
     @Query("SELECT COUNT(n) > 0 FROM Notification n WHERE n.scheduleAlarm.id = :scheduleAlarmId")
     boolean existsByScheduleAlarmId(@Param("scheduleAlarmId") Long scheduleAlarmId);
+
+    /**
+     * 특정 다이어리 ID와 연결된 알림 전부 삭제
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("DELETE FROM Notification n WHERE n.diaryTag.diary.id = :diaryId")
+    void deleteByDiaryId(@Param("diaryId") Long diaryId);
+
+    /**
+     * 특정 DiaryTag ID와 연결된 알림 전부 삭제
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("DELETE FROM Notification n WHERE n.diaryTag.id = :diaryTagId")
+    void deleteByDiaryTagId(@Param("diaryTagId") Long diaryTagId);
+
+
 }
