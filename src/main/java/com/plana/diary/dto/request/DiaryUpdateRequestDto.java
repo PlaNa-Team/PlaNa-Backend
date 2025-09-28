@@ -23,4 +23,7 @@ public class DiaryUpdateRequestDto {
     //태그 전체 교체
     @Size(min=0)
     private List<DiaryTagRequestDto> diaryTags;
+
+    //클라이언트가 마지막으로 본 버전
+//    private Long version;
 }

@@ -27,4 +27,7 @@ public class DiaryDetailResponseDto {
 
     // 태그
     private List<DiaryTagResponseDto> diaryTags;
+
+    // 낙관적 락 버전
+//    private Long version;
 }

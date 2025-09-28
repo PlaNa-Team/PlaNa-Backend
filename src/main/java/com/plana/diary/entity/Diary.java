@@ -52,4 +52,8 @@ public class Diary {
     public void markDeleted() {
         this.isDeleted = true;
     }
+
+    // 낙관적 락용 버전 필드
+//    @Version
+//    private Long version;
 }

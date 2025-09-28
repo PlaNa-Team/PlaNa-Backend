@@ -14,10 +14,12 @@ import com.plana.notification.service.NotificationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.crossstore.ChangeSetPersister;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
@@ -37,6 +39,7 @@ public class DiaryServiceImpl implements DiaryService {
     private final NotificationRepository notificationRepository;
     private final NotificationService notificationService;
 
+    private final StringRedisTemplate redis;
 
     // 다이어리 등록
     @Transactional
@@ -236,6 +239,7 @@ public class DiaryServiceImpl implements DiaryService {
                 diary.getUpdatedAt(),
                 contentDto,
                 tagDtos
+//                diary.getVersion()
         );
     }
 
@@ -390,155 +394,174 @@ public class DiaryServiceImpl implements DiaryService {
     @Override
     @Transactional
     public DiaryDetailResponseDto updateDiary(Long diaryId, Long memberId, DiaryUpdateRequestDto requestDto){
-        Diary diary = diaryRepository.findById(diaryId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "다이어리를 찾을 수 없습니다."));
+        String lockKey = "diary:lock:" + diaryId;
+        String owner = String.valueOf(memberId);
 
-        boolean isWriter = diary.getWriter().getId().equals(memberId);
-        boolean isAcceptedTag = diaryTagRepository
-                .findByDiary_IdAndMember_Id(diaryId, memberId).stream()
-                .anyMatch(tag -> tag.getTagStatus() == TagStatus.ACCEPTED);
-
-        if (!isWriter && !isAcceptedTag) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "수정 권한이 없습니다.");
+        // 락 획득 시도
+        Boolean success = redis.opsForValue().setIfAbsent(lockKey, owner, Duration.ofMinutes(5));
+        if (Boolean.FALSE.equals(success)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "현재 다른 사용자가 수정 중입니다.");
         }
 
+        try {
+            Diary diary = diaryRepository.findById(diaryId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "다이어리를 찾을 수 없습니다."));
 
-        // 타입 변경 금지
-        if(requestDto.getDiaryType() != null && requestDto.getDiaryType() != diary.getType()){
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "타입은 수정할 수 없습니다.");
-        }
+            boolean isWriter = diary.getWriter().getId().equals(memberId);
+            boolean isAcceptedTag = diaryTagRepository
+                    .findByDiary_IdAndMember_Id(diaryId, memberId).stream()
+                    .anyMatch(tag -> tag.getTagStatus() == TagStatus.ACCEPTED);
 
-        // 공통 필드 부분 수정
-        if (requestDto.getDiaryDate() != null) diary.setDiaryDate(requestDto.getDiaryDate());
-        if (requestDto.getImageUrl() != null) diary.setImageUrl(requestDto.getImageUrl());
+            if (!isWriter && !isAcceptedTag) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "수정 권한이 없습니다.");
+            }
 
-        // content만 현재 타입 기준으로 부분 수정
-        if(requestDto.getContent() != null){
-            switch (diary.getType()){
-                case DAILY -> {
-                    Daily daily = dailyRepository.findByDiary_Id(diaryId)
-                            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Daily 내용을 찾을 수 없습니다."));
 
-                    // requestDto 안에 있는 content 필드를 타입별 DTO로 변환
-                    DailyContentRequestDto dto = (DailyContentRequestDto) requestDto.getContent();
-                    if (dto.getTitle() != null) daily.setTitle(dto.getTitle());
-                    if(dto.getLocation() != null) daily.setLocation(dto.getLocation());
-                    if(dto.getMemo() != null) daily.setMemo(dto.getMemo());
-                }
-                case BOOK -> {
-                    Book book = bookRepository.findByDiary_Id(diaryId)
-                            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Book 내용을 찾을 수 없습니다."));
+            // 타입 변경 금지
+            if (requestDto.getDiaryType() != null && requestDto.getDiaryType() != diary.getType()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "타입은 수정할 수 없습니다.");
+            }
 
-                    BookContentRequestDto dto = (BookContentRequestDto) requestDto.getContent();
-                    if (dto.getTitle() != null) book.setTitle(dto.getTitle());
-                    if (dto.getAuthor() != null) book.setAuthor(dto.getAuthor());
-                    if (dto.getGenre() != null) book.setGenre(dto.getGenre());
-                    if (dto.getRating() != null) book.setRating(dto.getRating());
-                    if (dto.getComment() != null) book.setComment(dto.getComment());
-                    if (dto.getPublisher() != null) book.setPublisher(dto.getPublisher());
+            // 공통 필드 부분 수정
+            if (requestDto.getDiaryDate() != null) diary.setDiaryDate(requestDto.getDiaryDate());
+            if (requestDto.getImageUrl() != null) diary.setImageUrl(requestDto.getImageUrl());
 
-                    // 날짜 부분 수정
-                    LocalDate newStart = dto.getStartDate() != null? dto.getStartDate() :book.getStartDate();
-                    LocalDate newEnd = dto.getEndDate() != null? dto.getEndDate() : book.getEndDate();
-                    if (newStart != null && newEnd != null && newStart.isAfter(newEnd)){
-                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "책 시작일이 종료일보다 늦을 수 없습니다.");
+            // content만 현재 타입 기준으로 부분 수정
+            if (requestDto.getContent() != null) {
+                switch (diary.getType()) {
+                    case DAILY -> {
+                        Daily daily = dailyRepository.findByDiary_Id(diaryId)
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Daily 내용을 찾을 수 없습니다."));
+
+                        // requestDto 안에 있는 content 필드를 타입별 DTO로 변환
+                        DailyContentRequestDto dto = (DailyContentRequestDto) requestDto.getContent();
+                        if (dto.getTitle() != null) daily.setTitle(dto.getTitle());
+                        if (dto.getLocation() != null) daily.setLocation(dto.getLocation());
+                        if (dto.getMemo() != null) daily.setMemo(dto.getMemo());
                     }
-                    if (dto.getStartDate() != null) book.setStartDate(dto.getStartDate());
-                    if (dto.getEndDate() != null) book.setEndDate(dto.getEndDate());
-                    if (dto.getRewatch() != null) book.setRewatch(dto.getRewatch());
-                }
-                case MOVIE -> {
-                    Movie movie = movieRepository.findByDiary_Id(diaryId)
-                            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Movie 내용을 찾을 수 없습니다."));
-                    MovieContentRequestDto dto = (MovieContentRequestDto) requestDto.getContent();
-                    if (dto.getTitle() != null) movie.setTitle(dto.getTitle());
-                    if (dto.getDirector() != null) movie.setDirector(dto.getDirector());
-                    if (dto.getActors() != null) movie.setActors(dto.getActors());
-                    if (dto.getGenre() != null) movie.setGenre(dto.getGenre());
-                    if (dto.getRating() != null) movie.setRating(dto.getRating());
-                    if (dto.getComment() != null) movie.setComment(dto.getComment());
-                    if (dto.getRewatch() != null) movie.setRewatch(dto.getRewatch());
-                    if (dto.getReleaseDate() != null) movie.setReleaseDate(dto.getReleaseDate());
+                    case BOOK -> {
+                        Book book = bookRepository.findByDiary_Id(diaryId)
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Book 내용을 찾을 수 없습니다."));
+
+                        BookContentRequestDto dto = (BookContentRequestDto) requestDto.getContent();
+                        if (dto.getTitle() != null) book.setTitle(dto.getTitle());
+                        if (dto.getAuthor() != null) book.setAuthor(dto.getAuthor());
+                        if (dto.getGenre() != null) book.setGenre(dto.getGenre());
+                        if (dto.getRating() != null) book.setRating(dto.getRating());
+                        if (dto.getComment() != null) book.setComment(dto.getComment());
+                        if (dto.getPublisher() != null) book.setPublisher(dto.getPublisher());
+
+                        // 날짜 부분 수정
+                        LocalDate newStart = dto.getStartDate() != null ? dto.getStartDate() : book.getStartDate();
+                        LocalDate newEnd = dto.getEndDate() != null ? dto.getEndDate() : book.getEndDate();
+                        if (newStart != null && newEnd != null && newStart.isAfter(newEnd)) {
+                            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "책 시작일이 종료일보다 늦을 수 없습니다.");
+                        }
+                        if (dto.getStartDate() != null) book.setStartDate(dto.getStartDate());
+                        if (dto.getEndDate() != null) book.setEndDate(dto.getEndDate());
+                        if (dto.getRewatch() != null) book.setRewatch(dto.getRewatch());
+                    }
+                    case MOVIE -> {
+                        Movie movie = movieRepository.findByDiary_Id(diaryId)
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Movie 내용을 찾을 수 없습니다."));
+                        MovieContentRequestDto dto = (MovieContentRequestDto) requestDto.getContent();
+                        if (dto.getTitle() != null) movie.setTitle(dto.getTitle());
+                        if (dto.getDirector() != null) movie.setDirector(dto.getDirector());
+                        if (dto.getActors() != null) movie.setActors(dto.getActors());
+                        if (dto.getGenre() != null) movie.setGenre(dto.getGenre());
+                        if (dto.getRating() != null) movie.setRating(dto.getRating());
+                        if (dto.getComment() != null) movie.setComment(dto.getComment());
+                        if (dto.getRewatch() != null) movie.setRewatch(dto.getRewatch());
+                        if (dto.getReleaseDate() != null) movie.setReleaseDate(dto.getReleaseDate());
+                    }
                 }
             }
-        }
-        // 태그 교체 (null이면 변경없음, 빈배열이면 전부삭제)
-        if (requestDto.getDiaryTags() != null) {
-            //기존 알림 먼저 삭제
-            notificationRepository.deleteByDiaryId(diaryId);
+            // 태그 교체 (null이면 변경없음, 빈배열이면 전부삭제)
+            if (requestDto.getDiaryTags() != null) {
+                //기존 알림 먼저 삭제
+                notificationRepository.deleteByDiaryId(diaryId);
 
-            // 1) 기존 태그 삭제 - 벌크 삭제 + flush
-            diaryTagRepository.deleteByDiaryId(diaryId);
-            diaryTagRepository.flush();
+                // 1) 기존 태그 삭제 - 벌크 삭제 + flush
+                diaryTagRepository.deleteByDiaryId(diaryId);
+                diaryTagRepository.flush();
 
-            // 2) 새 태그 저장 + 필요 시 새 알림 생성
-            Set<Long> seenMemberIds = new HashSet<>();
-            boolean writerTaggedOnce = false;
+                // 2) 새 태그 저장 + 필요 시 새 알림 생성
+                Set<Long> seenMemberIds = new HashSet<>();
+                boolean writerTaggedOnce = false;
 
-            for (DiaryTagRequestDto tagDto : requestDto.getDiaryTags()) {
-                if (tagDto.getMemberId() != null) {
-                    Long taggedId = tagDto.getMemberId();
-                    if (!seenMemberIds.add(taggedId)) {
-                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "태그 대상자가 중복되었습니다.");
-                    }
-
-                    Member tagged = memberRepository.findById(taggedId)
-                            .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "태그 대상자 정보가 없습니다."));
-
-                    TagStatus status = diary.getWriter().getId().equals(tagged.getId())
-                            ? TagStatus.WRITER : TagStatus.PENDING;
-
-                    if (status == TagStatus.WRITER) {
-                        if (writerTaggedOnce) {
-                            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "작성자 태그는 한 번만 지정할 수 있습니다.");
+                for (DiaryTagRequestDto tagDto : requestDto.getDiaryTags()) {
+                    if (tagDto.getMemberId() != null) {
+                        Long taggedId = tagDto.getMemberId();
+                        if (!seenMemberIds.add(taggedId)) {
+                            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "태그 대상자가 중복되었습니다.");
                         }
-                        writerTaggedOnce = true;
-                    }
 
-                    DiaryTag savedTag = diaryTagRepository.save(DiaryTag.builder()
-                            .diary(diary)
-                            .member(tagged)
-                            .tagStatus(status)
-                            .build());
+                        Member tagged = memberRepository.findById(taggedId)
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "태그 대상자 정보가 없습니다."));
 
-                    // 새 태그 알림 발송
-                    if (status == TagStatus.PENDING) {
-                        notificationRepository.save(Notification.builder()
-                                .diaryTag(savedTag)
-                                .member(tagged)  // 알림 받을 사용자
-                                .type("TAG")
-                                .time(LocalDateTime.now()) // 즉시 알림
-                                .isRead(false)
-                                .isSent(false)
+                        TagStatus status = diary.getWriter().getId().equals(tagged.getId())
+                                ? TagStatus.WRITER : TagStatus.PENDING;
+
+                        if (status == TagStatus.WRITER) {
+                            if (writerTaggedOnce) {
+                                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "작성자 태그는 한 번만 지정할 수 있습니다.");
+                            }
+                            writerTaggedOnce = true;
+                        }
+
+                        DiaryTag savedTag = diaryTagRepository.save(DiaryTag.builder()
+                                .diary(diary)
+                                .member(tagged)
+                                .tagStatus(status)
+                                .build());
+
+                        // 새 태그 알림 발송
+                        if (status == TagStatus.PENDING) {
+                            notificationRepository.save(Notification.builder()
+                                    .diaryTag(savedTag)
+                                    .member(tagged)  // 알림 받을 사용자
+                                    .type("TAG")
+                                    .time(LocalDateTime.now()) // 즉시 알림
+                                    .isRead(false)
+                                    .isSent(false)
+                                    .build());
+                        }
+
+                    } else if (tagDto.getTagText() != null && !tagDto.getTagText().isBlank()) {
+                        diaryTagRepository.save(DiaryTag.builder()
+                                .diary(diary)
+                                .tagText(tagDto.getTagText())
+                                .tagStatus(TagStatus.PENDING)
                                 .build());
                     }
-
-                } else if (tagDto.getTagText() != null && !tagDto.getTagText().isBlank()) {
-                    diaryTagRepository.save(DiaryTag.builder()
-                            .diary(diary)
-                            .tagText(tagDto.getTagText())
-                            .tagStatus(TagStatus.PENDING)
-                            .build());
                 }
             }
+
+
+            // 응답 재구성
+            DiaryContentResponseDto contentDto = mapContentToDto(diary);
+            List<DiaryTagResponseDto> tagDtos = diaryTagRepository.findByDiary_Id(diaryId).stream()
+                    .map(tag -> tag.getMember() != null
+                            ? DiaryTagResponseDto.builder().id(tag.getId()).memberId(tag.getMember().getId())
+                            .loginId(tag.getMember().getLoginId()).memberNickname(tag.getMember().getNickname())
+                            .tagStatus(tag.getTagStatus()).build()
+                            : DiaryTagResponseDto.builder().id(null).tagText(tag.getTagText())
+                            .tagStatus(tag.getTagStatus()).build())
+                    .toList();
+
+            return new DiaryDetailResponseDto(
+                    diary.getId(), diary.getDiaryDate(), diary.getType(), diary.getImageUrl(),
+                    diary.getCreatedAt(), diary.getUpdatedAt(), contentDto, tagDtos
+//                    , diary.getVersion()
+            );
         }
-
-
-        // 응답 재구성
-        DiaryContentResponseDto contentDto = mapContentToDto(diary);
-        List<DiaryTagResponseDto> tagDtos = diaryTagRepository.findByDiary_Id(diaryId).stream()
-                .map(tag -> tag.getMember()!=null
-                ? DiaryTagResponseDto.builder().id(tag.getId()).memberId(tag.getMember().getId())
-                                .loginId(tag.getMember().getLoginId()).memberNickname(tag.getMember().getNickname())
-                                .tagStatus(tag.getTagStatus()).build()
-                        : DiaryTagResponseDto.builder().id(null).tagText(tag.getTagText())
-                                .tagStatus(tag.getTagStatus()).build())
-                .toList();
-
-        return new DiaryDetailResponseDto(
-                diary.getId(), diary.getDiaryDate(), diary.getType(), diary.getImageUrl(),
-                diary.getCreatedAt(), diary.getUpdatedAt(), contentDto, tagDtos
-        );
+        finally {
+            // 락 해제 (내가 소유한 경우만)
+            String lockValue = redis.opsForValue().get(lockKey);
+            if (owner.equals(lockValue)) {
+                redis.delete(lockKey);
+            }
+        }
     }
 
     // 태그 수락, 거절
@@ -648,6 +671,7 @@ public class DiaryServiceImpl implements DiaryService {
                 diary.getUpdatedAt(),
                 contentDto,
                 tagDtos
+//                diary.getVersion()
         );
 
         return TagStatusUpdateResponseDto.builder()
