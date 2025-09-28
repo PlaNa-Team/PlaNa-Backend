@@ -360,35 +360,53 @@ public class DiaryServiceImpl implements DiaryService {
     }
 
 
-    // 다이어리 삭제
+    // 다이어리 삭제 (작성자는 isDeleted, 태그 사용자는 내게서만 숨김)
     @Override
     @Transactional
     public void deleteDiary(Long diaryId, Long memberId) {
-        // 삭제되지 않은 다이어리 조회
-        Diary diary = diaryRepository.findByIdAndIsDeletedFalse(diaryId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "다이어리를 찾을 수 없습니다."));
 
-        // 권한 체크
+        // 1) isDeleted 여부 무관하게 조회 (작성자 삭제 후에도 태그 사용자가 숨김 처리할 수 있어야 함)
+        Diary diary = diaryRepository.findById(diaryId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "다이어리를 찾을 수 없습니다."));
+
         boolean isWriter = diary.getWriter().getId().equals(memberId);
-        boolean isAcceptedTag = diaryTagRepository
-                .findByDiary_IdAndMember_Id(diaryId, memberId).stream()
-                .anyMatch(tag -> tag.getTagStatus() == TagStatus.ACCEPTED);
 
+        // 내 태그(있을 수도, 없을 수도)
+        Optional<DiaryTag> myTagOpt = diaryTagRepository.findByDiary_IdAndMember_Id(diaryId, memberId)
+                .stream().findFirst();
+
+        boolean isAcceptedTag = myTagOpt.isPresent()
+                && myTagOpt.get().getTagStatus() == TagStatus.ACCEPTED;
+
+        // 2) 권한 체크: 작성자 or '승인된 태그 사용자'만 삭제 동작 가능
         if (!isWriter && !isAcceptedTag) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "수정 권한이 없습니다.");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "삭제 권한이 없습니다.");
         }
 
-        // 삭제시 알림도 같이 제거
-        notificationRepository.deleteByDiaryId(diaryId);
+        // 3) 분기
+        if (isWriter) {
+            // --- 작성자: 전역 삭제 플래그만 설정 ---
+            if (!diary.isDeleted()) {
+                diary.markDeleted();                // isDeleted = true
+                diaryRepository.save(diary);
+            }
+            // 알림/태그는 손대지 않음 (승인 태그 사용자에게 계속 보여야 하므로)
+            // notificationRepository.deleteByDiaryId(diaryId); // ← 호출하지 않음
+            // diaryTagRepository.bulkUpdateStatusByDiaryId(...); // ← 호출하지 않음
 
-        // 태그 상태를 모두 DELETED로 변경
-        diaryTagRepository.bulkUpdateStatusByDiaryId(diaryId, TagStatus.DELETED);
-
-        // 다이어리 소프트 삭제 처리
-        diary.markDeleted();   // isDeleted = true
-        diaryRepository.save(diary);
+        } else {
+            // --- 태그 사용자: 내게서만 숨김 ---
+            DiaryTag myTag = myTagOpt.get();
+            if (myTag.getTagStatus() != TagStatus.REJECTED) {
+                myTag.setTagStatus(TagStatus.REJECTED);
+                diaryTagRepository.save(myTag);
+            }
+            // (선택) 내 알림만 정리하고 싶다면 리포지토리에 아래 같은 메서드를 두고 호출
+            // notificationRepository.deleteByDiaryTagId(myTag.getId());
+            // 또는 notificationRepository.markReadByDiaryTagId(myTag.getId());
+        }
     }
+
 
     // 다이어리 수정
     @Override
@@ -476,66 +494,71 @@ public class DiaryServiceImpl implements DiaryService {
                     }
                 }
             }
-            // 태그 교체 (null이면 변경없음, 빈배열이면 전부삭제)
+
             if (requestDto.getDiaryTags() != null) {
-                //기존 알림 먼저 삭제
-                notificationRepository.deleteByDiaryId(diaryId);
-
-                // 1) 기존 태그 삭제 - 벌크 삭제 + flush
-                diaryTagRepository.deleteByDiaryId(diaryId);
-                diaryTagRepository.flush();
-
-                // 2) 새 태그 저장 + 필요 시 새 알림 생성
-                Set<Long> seenMemberIds = new HashSet<>();
-                boolean writerTaggedOnce = false;
-
-                for (DiaryTagRequestDto tagDto : requestDto.getDiaryTags()) {
-                    if (tagDto.getMemberId() != null) {
-                        Long taggedId = tagDto.getMemberId();
-                        if (!seenMemberIds.add(taggedId)) {
-                            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "태그 대상자가 중복되었습니다.");
-                        }
-
-                        Member tagged = memberRepository.findById(taggedId)
-                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "태그 대상자 정보가 없습니다."));
-
-                        TagStatus status = diary.getWriter().getId().equals(tagged.getId())
-                                ? TagStatus.WRITER : TagStatus.PENDING;
-
-                        if (status == TagStatus.WRITER) {
-                            if (writerTaggedOnce) {
-                                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "작성자 태그는 한 번만 지정할 수 있습니다.");
-                            }
-                            writerTaggedOnce = true;
-                        }
-
-                        DiaryTag savedTag = diaryTagRepository.save(DiaryTag.builder()
-                                .diary(diary)
-                                .member(tagged)
-                                .tagStatus(status)
-                                .build());
-
-                        // 새 태그 알림 발송
-                        if (status == TagStatus.PENDING) {
-                            notificationRepository.save(Notification.builder()
-                                    .diaryTag(savedTag)
-                                    .member(tagged)  // 알림 받을 사용자
-                                    .type("TAG")
-                                    .time(LocalDateTime.now()) // 즉시 알림
-                                    .isRead(false)
-                                    .isSent(false)
-                                    .build());
-                        }
-
-                    } else if (tagDto.getTagText() != null && !tagDto.getTagText().isBlank()) {
-                        diaryTagRepository.save(DiaryTag.builder()
-                                .diary(diary)
-                                .tagText(tagDto.getTagText())
-                                .tagStatus(TagStatus.PENDING)
-                                .build());
-                    }
-                }
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "태그는 수정할 수 없습니다.");
             }
+
+            // 태그 교체 (null이면 변경없음, 빈배열이면 전부삭제)
+//            if (requestDto.getDiaryTags() != null) {
+//                //기존 알림 먼저 삭제
+//                notificationRepository.deleteByDiaryId(diaryId);
+//
+//                // 1) 기존 태그 삭제 - 벌크 삭제 + flush
+//                diaryTagRepository.deleteByDiaryId(diaryId);
+//                diaryTagRepository.flush();
+//
+//                // 2) 새 태그 저장 + 필요 시 새 알림 생성
+//                Set<Long> seenMemberIds = new HashSet<>();
+//                boolean writerTaggedOnce = false;
+//
+//                for (DiaryTagRequestDto tagDto : requestDto.getDiaryTags()) {
+//                    if (tagDto.getMemberId() != null) {
+//                        Long taggedId = tagDto.getMemberId();
+//                        if (!seenMemberIds.add(taggedId)) {
+//                            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "태그 대상자가 중복되었습니다.");
+//                        }
+//
+//                        Member tagged = memberRepository.findById(taggedId)
+//                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "태그 대상자 정보가 없습니다."));
+//
+//                        TagStatus status = diary.getWriter().getId().equals(tagged.getId())
+//                                ? TagStatus.WRITER : TagStatus.PENDING;
+//
+//                        if (status == TagStatus.WRITER) {
+//                            if (writerTaggedOnce) {
+//                                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "작성자 태그는 한 번만 지정할 수 있습니다.");
+//                            }
+//                            writerTaggedOnce = true;
+//                        }
+//
+//                        DiaryTag savedTag = diaryTagRepository.save(DiaryTag.builder()
+//                                .diary(diary)
+//                                .member(tagged)
+//                                .tagStatus(status)
+//                                .build());
+//
+//                        // 새 태그 알림 발송
+//                        if (status == TagStatus.PENDING) {
+//                            notificationRepository.save(Notification.builder()
+//                                    .diaryTag(savedTag)
+//                                    .member(tagged)  // 알림 받을 사용자
+//                                    .type("TAG")
+//                                    .time(LocalDateTime.now()) // 즉시 알림
+//                                    .isRead(false)
+//                                    .isSent(false)
+//                                    .build());
+//                        }
+//
+//                    } else if (tagDto.getTagText() != null && !tagDto.getTagText().isBlank()) {
+//                        diaryTagRepository.save(DiaryTag.builder()
+//                                .diary(diary)
+//                                .tagText(tagDto.getTagText())
+//                                .tagStatus(TagStatus.PENDING)
+//                                .build());
+//                    }
+//                }
+//            }
 
 
             // 응답 재구성
