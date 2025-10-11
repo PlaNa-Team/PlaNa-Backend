@@ -60,6 +60,8 @@ services:
       - app.oauth2.authorized-redirect-uri=https://plana.hoonee-math.info/auth/callback
       - spring.security.oauth2.client.registration.google.redirect-uri=https://plana.hoonee-math.info/login/oauth2/code/google
 
+      # jWT 시크릿 (값은 ${JWT_SECRET}로 치환)
+      - jwt.secret=${JWT_SECRET}
     volumes:
       - planner-backend-logs:/app/logs
       - /etc/localtime:/etc/localtime:ro
