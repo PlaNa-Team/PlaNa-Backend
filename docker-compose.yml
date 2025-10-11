@@ -1,12 +1,9 @@
-# docker-compose.yml  — 기존 DB(services-db-1)에 연결 + 기존 옵션들 포함
+# docker-compose.yml — 백엔드 루트 빌드 + 외부 DB 연결
 
 networks:
-  # 로컬 프론트-리액트-엔진엑스용 네트워크(동일 compose 내)
   frontend_react_nginx:
-  # 기존 인프라 쪽 네트워크에 조인 (DB가 붙어있는 네트워크)
   services_backend:
     external: true
-  # 프론트 공용 네트워크 (기존과 동일하게 외부 네트워크 사용 중이면 유지)
   services_frontend:
     external: true
 
@@ -17,89 +14,69 @@ volumes:
     driver: local
 
 services:
-  # ─────────────────────────────────────────────────────────
-  # 1) NGINX (정적 프론트)
-  # ─────────────────────────────────────────────────────────
+  # ────────────────────────────────────────────────
+  # 1) NGINX (React 정적 배포)
+  # ────────────────────────────────────────────────
   frontend_react_nginx:
     image: nginx:latest
     container_name: planner-nginx
     environment:
       - TZ=Asia/Seoul
     volumes:
-      # NGINX 서버 블록(리버스 프록시/정적 라우팅 설정)
       - ./nginx/conf.d:/etc/nginx/conf.d
-      # 빌드된 프론트엔드 정적 파일
-      - ./frontend:/usr/share/nginx/html
-      # (선택) 호스트 시간 동기화
+      # ⚠️ React build 결과물 폴더에 맞게 수정 (build 또는 dist)
+      - ./frontend/build:/usr/share/nginx/html
       - /etc/localtime:/etc/localtime:ro
     networks:
       - frontend_react_nginx
       - services_frontend
     restart: always
-    # (선택) 외부 노출 필요 시 사용
     # ports:
     #   - "80:80"
     #   - "443:443"
 
-  # ─────────────────────────────────────────────────────────
+  # ────────────────────────────────────────────────
   # 2) Spring Boot Backend
-  # ─────────────────────────────────────────────────────────
+  # ────────────────────────────────────────────────
   planner-backend:
-    build: ./backend
+    build:
+      context: .              # ✅ 루트 기준으로 빌드
+      dockerfile: Dockerfile  # ✅ 루트에 있으므로 명시만
     container_name: planner-backend
     environment:
       - TZ=Asia/Seoul
 
-      # ✅ 기존 DB(services-db-1)에 붙도록 JDBC 호스트만 지정
+      # ✅ 외부 DB 연결 (services-db-1)
       - SPRING_DATASOURCE_URL=jdbc:mysql://services-db-1:3306/genius_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=utf8
       - SPRING_DATASOURCE_USERNAME=genius
       - SPRING_DATASOURCE_PASSWORD=genius4MySql!
-
-      # (호환) 애플리케이션이 별도로 local.db.url을 읽는 경우 대비
       - local.db.url=jdbc:mysql://services-db-1:3306/genius_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=utf8
 
-      # ✅ Redis 연결 (compose 내 redis 서비스)
+      # ✅ Redis 연결
       - redis.host=planner-redis
       - redis.port=6379
 
-      # ✅ OAuth Redirect (운영 도메인 기준)
+      # ✅ OAuth Redirect (운영 환경)
       - app.oauth2.authorized-redirect-uri=https://plana.hoonee-math.info/auth/callback
       - spring.security.oauth2.client.registration.google.redirect-uri=https://plana.hoonee-math.info/login/oauth2/code/google
 
-      # (선택) Spring Profile 지정이 필요하면 주석 해제
-      # - SPRING_PROFILES_ACTIVE=docker
-
     volumes:
-      # 애플리케이션 로그 보존
       - planner-backend-logs:/app/logs
       - /etc/localtime:/etc/localtime:ro
-
     networks:
       - frontend_react_nginx
-      - services_backend   # 🔗 DB가 붙어있는 외부 네트워크
+      - services_backend
       - services_frontend
-
     restart: always
     depends_on:
       redis:
         condition: service_healthy
-
-    # (선택) 외부에서 직접 접근/디버깅할 때만 열기
-    # 내부 NGINX만 사용할 거면 생략해도 됨
     ports:
       - "8081:8080"
 
-    # (선택) 헬스체크 — 액추에이터를 켜뒀다면 사용
-    # healthcheck:
-    #   test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
-    #   interval: 30s
-    #   timeout: 5s
-    #   retries: 5
-    #   start_period: 40s
-
-  # ─────────────────────────────────────────────────────────
+  # ────────────────────────────────────────────────
   # 3) Redis
-  # ─────────────────────────────────────────────────────────
+  # ────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: planner-redis
