@@ -99,7 +99,8 @@ public class SecurityConfig {
                     "/api/ws/*/websocket/**",  // SockJS 세션별 WebSocket
                     "/api/ws/*/xhr/**",        // SockJS XHR 폴백
                     "/api/ws/*/jsonp/**",      // SockJS JSONP 폴백
-                    "/api/ws/*/iframe.html"    // SockJS iframe
+                    "/api/ws/*/iframe.html",    // SockJS iframe
+                    "/actuator/**"              // actuator 전체 공개 => 앱의 health와 내부 지표를 자동으로 보여주는 모니터링 도구
                 ).permitAll()
                 
                 // 관리자만 접근 가능한 엔드포인트
