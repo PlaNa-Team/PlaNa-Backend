@@ -23,7 +23,6 @@ services:
 
   plana-backend:
     build: .
-    container_name: plana-backend
     depends_on:
       mysql:
         condition: service_healthy
