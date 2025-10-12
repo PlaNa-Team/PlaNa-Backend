@@ -2,6 +2,9 @@
 
 Spring Boot 백엔드 프로젝트입니다.
 
+## 프로젝트 아키텍처 
+![Architecture_PlaNa.png](etc/Architecture_PlaNa.png)
+
 ## 🛠️ 사용된 기술 스택
 
 -   **Framework**: Spring Boot
