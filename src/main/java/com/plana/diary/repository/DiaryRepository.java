@@ -116,8 +116,9 @@ from (
    and t.member_id  = :viewerId
    and t.tag_status = 'ACCEPTED'
 
-  -- 접근 가능 조건: 내 글 또는 내가 수락한 공유 글
-  where (d.member_id = :viewerId or t.id is not null)
+  -- 접근 가능 조건: (내 글 & 삭제 아님) 또는 (내가 수락한 공유 글)
+  where ((d.member_id = :viewerId and d.is_deleted = false) or t.id is not null)
+  
 ) x
 -- 대표로 선정된 id를 다시 diary에 조인해 엔티티 매핑 안전하게
 join diary d on d.id = x.id
