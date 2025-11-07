@@ -438,6 +438,11 @@ public class DiaryServiceImpl implements DiaryService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "타입은 수정할 수 없습니다.");
             }
 
+            // 태그 불변성 검증: 요청에 diaryTags가 "포함"되면 기존과 완전히 같을 때만 통과
+            if (requestDto.getDiaryTags() != null) {
+                assertTagsUnchanged(diaryId, diary.getWriter().getId(), requestDto.getDiaryTags());
+            }
+
             // 공통 필드 부분 수정
             if (requestDto.getDiaryDate() != null) diary.setDiaryDate(requestDto.getDiaryDate());
             if (requestDto.getImageUrl() != null) diary.setImageUrl(requestDto.getImageUrl());
@@ -694,5 +699,54 @@ public class DiaryServiceImpl implements DiaryService {
                 .diary(diaryDto)
                 .build();
     }
+
+    private void assertTagsUnchanged(Long diaryId, Long writerId, List<DiaryTagRequestDto> requested) {
+        // 0) 요청 중복 방지 (memberId/tagText 기준)
+        Set<String> reqDedup = new HashSet<>();
+        for (DiaryTagRequestDto r : requested) {
+            String key = (r.getMemberId() != null)
+                    ? "M:" + r.getMemberId()
+                    : "T:" + normalizeText(r.getTagText());
+            if (!reqDedup.add(key)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "태그 항목이 중복되었습니다.");
+            }
+        }
+
+        // 1) 기존 태그 로드
+        List<DiaryTag> existing = diaryTagRepository.findByDiary_Id(diaryId);
+
+        // 2) 비교용 키 세트 (순서 무시)
+        Set<String> existingKeys = existing.stream()
+                .map(t -> (t.getMember() != null)
+                        ? "M:" + t.getMember().getId()
+                        : "T:" + normalizeText(t.getTagText()))
+                .collect(Collectors.toSet());
+
+        Set<String> requestedKeys = requested.stream()
+                .map(r -> (r.getMemberId() != null)
+                        ? "M:" + r.getMemberId()
+                        : "T:" + normalizeText(r.getTagText()))
+                .collect(Collectors.toSet());
+
+        // 3) 완전 동일해야 통과
+        if (!existingKeys.equals(requestedKeys)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "태그는 수정할 수 없습니다.");
+        }
+
+        // (선택) WRITER 고정 검증을 더 엄격히 하고 싶다면:
+        // boolean existingHasWriter = existing.stream().anyMatch(t -> t.getMember()!=null && t.getMember().getId().equals(writerId));
+        // boolean requestedHasWriter = requested.stream().anyMatch(r -> r.getMemberId()!=null && r.getMemberId().equals(writerId));
+        // if (existingHasWriter != requestedHasWriter) {
+        //     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "작성자 태그는 변경할 수 없습니다.");
+        // }
+
+        // (선택) TagStatus까지 불변으로 잠그려면 위의 key에 "|S:"+t.getTagStatus() / "|S:"+r.getTagStatus() 를 포함하세요.
+    }
+
+    private String normalizeText(String s) {
+        if (s == null) return "";
+        return s.trim();
+    }
+
 
 }
