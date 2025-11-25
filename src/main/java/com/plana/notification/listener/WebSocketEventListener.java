@@ -1,6 +1,5 @@
 package com.plana.notification.listener;
 
-import com.plana.notification.service.WebSocketSessionManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
@@ -24,8 +23,6 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class WebSocketEventListener {
 
-    private final WebSocketSessionManager sessionManager;
-
     /**
      * WebSocket 연결 이벤트 처리
      *
@@ -48,8 +45,6 @@ public class WebSocketEventListener {
                 Long memberId = (Long) sessionAttributes.get("memberId");
                 String memberEmail = (String) sessionAttributes.get("memberEmail");
 
-                // 세션 매니저에 사용자 등록
-                sessionManager.addUserSession(memberId, sessionId);
                 log.info("WebSocket 연결 성공: memberId={}, email={}, sessionId={}",
                         memberId, memberEmail, sessionId);
             } else {
@@ -74,14 +69,7 @@ public class WebSocketEventListener {
         log.info("WebSocket 연결 해제됨: sessionId={}", sessionId);
 
         try {
-            // 세션 관리자에서 해당 세션 제거
-            Long memberId = sessionManager.getMemberIdBySession(sessionId);
-            if (memberId != null) {
-                sessionManager.removeSession(sessionId);
-                log.info("사용자 WebSocket 연결 해제: memberId={}, sessionId={}", memberId, sessionId);
-            } else {
-                log.debug("세션 관리자에 등록되지 않은 연결 해제: sessionId={}", sessionId);
-            }
+            log.debug("WebSocket 연결 해제 처리 완료: sessionId={}", sessionId);
 
         } catch (Exception e) {
             log.error("WebSocket 연결 해제 처리 중 오류 발생: sessionId={}, error={}", sessionId, e.getMessage(), e);
@@ -104,18 +92,12 @@ public class WebSocketEventListener {
         try {
             // 개인 알림 채널 구독 확인
             if (destination != null && destination.startsWith("/user/")) {
-                Long memberId = sessionManager.getMemberIdBySession(sessionId);
-                if (memberId != null) {
                     // /user/queue/notifications 형태의 구독인지 확인
                     if (destination.equals("/user/queue/notifications")) {
-                        log.info("개인 알림 채널 구독 성공: memberId={}, destination={}", memberId, destination);
+                        log.info("개인 알림 채널 구독 성공: sessionId={}, destination={}", sessionId, destination);
                     } else {
-                        log.warn("알 수 없는 개인 채널 구독 시도: memberId={}, destination={}", memberId, destination);
+                        log.warn("알 수 없는 개인 채널 구독 시도: sessionId={}, destination={}", sessionId, destination);
                     }
-                } else {
-                    log.warn("인증되지 않은 사용자의 개인 채널 구독 시도: sessionId={}, destination={}",
-                            sessionId, destination);
-                }
             }
 
         } catch (Exception e) {

@@ -36,7 +36,6 @@ public class NotificationServiceImpl implements NotificationService {
     private final DiaryTagRepository diaryTagRepository;
     private final ScheduleAlarmRepository scheduleAlarmRepository;
     private final SimpMessagingTemplate messagingTemplate;
-    private final WebSocketSessionManager sessionManager;
 
     @Override
     @Transactional(readOnly = true)
@@ -161,28 +160,20 @@ public class NotificationServiceImpl implements NotificationService {
         Long memberId = notification.getMember().getId();
 
         try {
-            // 사용자가 온라인인지 확인
-            boolean isOnline = sessionManager.isUserOnline(memberId);
+            NotificationResponseDto responseDto = convertToResponseDto(notification);
 
-            if (isOnline) {
-                // 온라인 사용자에게 실시간 알림 발송 (Spring STOMP 표준 방식)
-                NotificationResponseDto responseDto = convertToResponseDto(notification);
+            // STOMP 표준 방식으로 메시지 발송
+            messagingTemplate.convertAndSendToUser(
+                memberId.toString(),           // Principal name (STOMP_USER_NAME)
+                "/queue/notifications",        // 목적지
+                responseDto                    // 메시지 페이로드
+            );
 
-                // 직접 경로로 발송 (확인된 작동 방식)
-                String directDestination = "/user/" + memberId + "/queue/notifications";
-                log.info("실시간 알림 발송 시도: memberId={}, destination={}", memberId, directDestination);
+            log.info("실시간 알림 발송 완료: memberId={}, notificationId={}",
+                    memberId, notification.getId());
 
-                messagingTemplate.convertAndSend(directDestination, responseDto);
-                log.info("실시간 알림 발송 완료: memberId={}, destination={}", memberId, directDestination);
-                log.info("실시간 알림 발송 완료: memberId={}, notificationId={}, sessionCount={}",
-                        memberId, notification.getId(), sessionManager.getUserSessionCount(memberId));
-            } else {
-                // 오프라인 사용자는 발송 안함 (다음 로그인 시 REST API로 조회)
-                log.debug("오프라인 사용자 알림 저장: memberId={}, notificationId={}",
-                        memberId, notification.getId());
-            }
-
-            // 온라인/오프라인 상관없이 발송 완료 처리 (DB에 저장된 것으로 간주)
+            // 발송 완료 처리 (DB에 저장된 것으로 간주)
+            // 온라인/오프라인 여부와 관계없이 발송 시도했으므로 isSent = true
             notification.setIsSent(true);
             notification.setSentAt(LocalDateTime.now());
             notificationRepository.save(notification);

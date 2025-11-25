@@ -20,10 +20,10 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class WebSocketTestService {
-
+/*
     private final SimpMessagingTemplate messagingTemplate;
     private final WebSocketSessionManager sessionManager;
-
+*/
     /**
      * 10초마다 온라인 사용자들에게 테스트 메시지 발송
      *
