@@ -36,7 +36,7 @@ public class NotificationScheduler {
      * - 발송 후 isSent = true, sentAt = 현재시간으로 업데이트
      * - isRead는 사용자가 실제 확인할 때까지 false 유지
      */
-    @Scheduled(fixedRate = 300000) // 5분마다 실행 (300초)
+    @Scheduled(fixedRate = 60000) // 1분마다 실행 (60초)
     @Transactional(timeout = 30)
     public void processScheduledNotifications() {
         LocalDateTime now = LocalDateTime.now();
