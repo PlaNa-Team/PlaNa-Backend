@@ -26,7 +26,15 @@ public class WebSocketTestService {
 
     /**
      * 10초마다 온라인 사용자들에게 테스트 메시지 발송
+     *
+         [주석 처리 사유]
+         - 프로덕션 환경에서 불필요한 자동 테스트 메시지 발송 방지
+         - 10초마다 모든 온라인 사용자에게 메시지를 보내어 불필요한 트래픽 발생
+         - 실제 알림이 아닌 테스트 메시지로 사용자 경험 저하
+         - 수동 테스트가 필요한 경우 NotificationController.sendTestMessage() API 사용 권장
+         - 개발 환경에서만 활성화하려면 @Profile("dev") 어노테이션 추가 고려
      */
+    /*
     @Scheduled(fixedDelay = 10000) // 10초마다 실행
     public void sendPeriodicTestMessage() {
         try {
@@ -37,6 +45,7 @@ public class WebSocketTestService {
                 log.debug("온라인 사용자가 없어서 테스트 메시지를 발송하지 않습니다.");
                 return;
             }
+            System.out.println("onlineUsers: " + onlineUsers);
 
             String currentTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
 
@@ -59,4 +68,5 @@ public class WebSocketTestService {
             log.error("테스트 메시지 발송 중 오류 발생: {}", e.getMessage(), e);
         }
     }
+*/
 }

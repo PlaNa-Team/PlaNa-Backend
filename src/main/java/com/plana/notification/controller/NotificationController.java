@@ -149,11 +149,19 @@ public class NotificationController {
      * 클라이언트가 WebSocket에 연결되면 호출되는 메시지 핸들러
      *
      * @param headerAccessor WebSocket 메시지 헤더 정보
+     *
+        [주석 처리 사유]
+         - WebSocketEventListener.handleWebSocketConnectListener()와 중복
+         - SessionConnectedEvent에서 이미 세션 등록 처리됨
+         - 클라이언트가 명시적으로 /app/connect 메시지를 보내지 않아도 자동 연결됨
+         - 불필요한 중복 세션 등록으로 인한 오버헤드 제거
      */
+    /*
     @MessageMapping("/connect")
     public void handleConnect(SimpMessageHeaderAccessor headerAccessor) {
         try {
             String sessionId = headerAccessor.getSessionId();
+//            System.out.println("연결된 사용자 확인 sessionId: " + sessionId);
             log.info("WebSocket 클라이언트 연결 요청: sessionId = {}", sessionId);
 
             // 핸드셰이크 인터셉터에서 설정한 세션 속성에서 사용자 정보 추출
@@ -166,7 +174,7 @@ public class NotificationController {
                 // 세션 매니저에 사용자 등록
                 sessionManager.addUserSession(memberId, sessionId);
                 log.info("WebSocket 연결 인증 성공: memberId={}, email={}, sessionId={}", memberId, memberEmail, sessionId);
-
+//                System.out.println("연결 인증 성공 정보: "+sessionId+" email: "+memberEmail);
                 // 연결 성공 응답 (선택사항)
                 // messagingTemplate.convertAndSendToUser(memberId.toString(), "/notifications",
                 //     Map.of("type", "connection", "status", "connected"));
@@ -179,6 +187,7 @@ public class NotificationController {
             log.error("WebSocket 연결 처리 중 오류 발생: {}", e.getMessage(), e);
         }
     }
+    */
 
     /**
      * WebSocket 테스트 메시지 수동 발송 API
